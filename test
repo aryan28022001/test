@@ -78,12 +78,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
 
       Block: Yup.mixed().nullable(), // Optional in all cases
 
-      // otherDivision: Yup.string().when("state", {
-      //   is: (state) => state?.id !== 5,
-      //   then: (schema) => schema.required("Division is required"),
-      //   otherwise: (schema) => schema.nullable(),
-      // }),
-
       otherDivision: Yup.string()
         .nullable()
         .when("state", {
@@ -155,7 +149,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
         markTabAsCompleted();
         goToNextTab();
       } catch (error) {
-        // alert("Error submitting form: " + error.message);
         console.log(error);
         showSnackbar(
           `Error: ${error.response?.data?.message || error.message}`,
@@ -168,6 +161,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     enableReinitialize: true,
   });
 
+  // Load all dropdowns and initial values in a single effect
   useEffect(() => {
     const loadDivisionDropdown = async () => {
       try {
@@ -187,94 +181,67 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       }
     };
 
+    // Main effect for loading and setting dependent dropdowns and values
     const loadEmployer_location_ContactDetails = async () => {
       try {
         const data = await fetchEmployer_Location_ContactDetail();
-
         if (data?.locationDetails && data?.contactDetails) {
           const loc = data.locationDetails;
           const contact = data.contactDetails;
           const state = loc?.state || null;
-
           const isBihar = state?.id === 5;
 
-          // Set the state
-          formik.setFieldValue("state", state);
+          let _divisionOptions = [];
+          let selectedDivision = null;
+          let _districtOptions = [];
+          let selectedDistrict = null;
+          let _blockOptions = [];
+          let selectedBlock = null;
 
           if (isBihar) {
-            // === 1. Fetch and Set Division ===
+            // Division
             const divisionRes = await fetchdivisionType(state.id);
-            const divisions = divisionRes.result || [];
-            setDivisionOptions(divisions);
+            _divisionOptions = divisionRes.result || [];
+            selectedDivision = _divisionOptions.find((d) => d.id === loc.division?.id) || null;
 
-            const selectedDivision = divisions.find(
-              (d) => d.id === loc.division?.id
-            );
-            formik.setFieldValue("Division", selectedDivision || null);
-            console.log("aryan", selectedDivision.id);
-
+            // District
             if (selectedDivision) {
-              // === 2. Fetch and Set District ===
               const districtRes = await fetchdistrictType(selectedDivision.id);
-              const districts = districtRes.result || [];
-              setDistrictOptions(districts);
-              console.log("districtslist", districts);
+              _districtOptions = districtRes.result || [];
+              selectedDistrict = _districtOptions.find((d) => d.id === loc.district?.id) || null;
 
-              const selectedDistrict = districts.find(
-                (d) => d.id === loc.district?.id
-              );
-              formik.setFieldValue("district", selectedDistrict || null);
-              console.log("selecteddistrict", selectedDistrict);
-
+              // Block
               if (selectedDistrict) {
-                // === 3. Fetch and Set Block ===
                 const blockRes = await fetchBlockType(selectedDistrict.id);
-                const blocks = blockRes.result || [];
-                console.log(blocks);
-                setBlockOptions(blocks);
-
-                const selectedBlock = blocks.find(
-                  (b) => b.id === loc.block?.id
-                );
-                console.log(selectedBlock);
-                formik.setFieldValue("Block", selectedBlock || null);
+                _blockOptions = blockRes.result || [];
+                selectedBlock = _blockOptions.find((b) => b.id === loc.block?.id) || null;
               }
             }
-
-            // Clear text fields
-            formik.setFieldValue("otherDivision", "");
-            formik.setFieldValue("otherDistrict", "");
-            formik.setFieldValue("otherBlock", null);
-          } else {
-            // For non-Bihar states, clear dropdowns
-            formik.setFieldValue("Division", null);
-            formik.setFieldValue("district", null);
-            formik.setFieldValue("Block", null);
-
-            setDivisionOptions([]);
-            setDistrictOptions([]);
-            setBlockOptions([]);
-
-            // === Set Text Fields ===
-            formik.setFieldValue("otherDivision", loc.otherDivision ?? "");
-            formik.setFieldValue("otherDistrict", loc.otherDistrict ?? "");
-            formik.setFieldValue("otherBlock", loc.otherBlock ?? null);
           }
 
-          // === Set Common Fields ===
-          formik.setFieldValue("officeAddress", loc.officeAddress || "");
-          formik.setFieldValue("pincode", loc.pincode || "");
+          setDivisionOptions(_divisionOptions);
+          setDistrictOptions(_districtOptions);
+          setBlockOptions(_blockOptions);
 
-          formik.setFieldValue("firstName", contact.firstName || "");
-          formik.setFieldValue("middleName", contact.middleName || "");
-          formik.setFieldValue("lastName", contact.lastName || "");
-          formik.setFieldValue("designation", contact.designation || "");
-          formik.setFieldValue("mobileNo", contact.mobileNo || "");
-          formik.setFieldValue(
-            "officeContactNo",
-            contact.officeContactNo || ""
-          );
-          formik.setFieldValue("email", contact.email || "");
+          // Set all initial values at once
+          formik.setValues({
+            officeAddress: loc.officeAddress || "",
+            pincode: loc.pincode || "",
+            state: state,
+            Division: selectedDivision,
+            district: selectedDistrict,
+            Block: selectedBlock,
+            otherDivision: !isBihar ? loc.otherDivision ?? "" : "",
+            otherDistrict: !isBihar ? loc.otherDistrict ?? "" : "",
+            otherBlock: !isBihar ? loc.otherBlock ?? "" : "",
+            firstName: contact.firstName || "",
+            middleName: contact.middleName || "",
+            lastName: contact.lastName || "",
+            designation: contact.designation || "",
+            mobileNo: contact.mobileNo || "",
+            officeContactNo: contact.officeContactNo || "",
+            email: contact.email || "",
+          });
         }
       } catch (err) {
         console.error("Failed to fetch location/contact details", err);
@@ -286,50 +253,43 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     loadEmployer_location_ContactDetails();
   }, []);
 
-  // useEffect(() => {
-  //   if (formik.values.division) {
-  //     const loadDistricts = async () => {
-  //       try {
-  //         const data = await fetchdistrictType(formik.values.division.id);
-  //         setDistrictOptions(data.result || []);
-  //         formik.setFieldValue("district", null);
-  //         setTalukaOptions([]);
-  //         formik.setFieldValue("taluka", null);
-  //       } catch (err) {
-  //         setDistrictOptions([]);
-  //       }
-  //     };
-  //     loadDistricts();
-  //   }
-  // }, [formik.values.division]);
-
+  // Only reload dependent dropdowns if user changes state/division/district manually
   useEffect(() => {
-    if (formik.values.state) {
+    // Only reload if not set by initial data load
+    if (formik.values.state && !formik.values.Division && formik.values.state.id === 5) {
       const loadDivision = async () => {
         try {
           const data = await fetchdivisionType(formik.values.state.id);
           setDivisionOptions(data.result || []);
-          formik.setFieldValue("district", null);
           setDistrictOptions([]);
+          formik.setFieldValue("district", null);
         } catch (err) {
           setDivisionOptions([]);
         }
       };
       loadDivision();
     }
+    // For non-Bihar states, clear division/district/block dropdowns
+    if (formik.values.state && formik.values.state.id !== 5) {
+      setDivisionOptions([]);
+      setDistrictOptions([]);
+      setBlockOptions([]);
+      formik.setFieldValue("Division", null);
+      formik.setFieldValue("district", null);
+      formik.setFieldValue("Block", null);
+    }
   }, [formik.values.state]);
 
   useEffect(() => {
-    if (formik.values.Division) {
+    if (formik.values.Division && !formik.values.district) {
       const loadDistricts = async () => {
         try {
           const data = await fetchdistrictType(formik.values.Division.id);
           setDistrictOptions(data.result || []);
-          formik.setFieldValue("district", null);
-          setBlockOptions([]); // Reset blocks
+          setBlockOptions([]);
+          formik.setFieldValue("Block", null);
         } catch (error) {
           setDistrictOptions([]);
-          console.error("Failed to load districts", error);
         }
       };
       loadDistricts();
@@ -337,15 +297,13 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   }, [formik.values.Division]);
 
   useEffect(() => {
-    if (formik.values.district) {
+    if (formik.values.district && !formik.values.Block) {
       const loadBlocks = async () => {
         try {
           const data = await fetchBlockType(formik.values.district.id);
           setBlockOptions(data.result || []);
-          formik.setFieldValue("Block", null);
         } catch (error) {
           setBlockOptions([]);
-          console.error("Failed to load blocks", error);
         }
       };
       loadBlocks();
@@ -756,7 +714,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                 <Button onClick={() => goToBackTab()} variant="contained">
                   Back
                 </Button>
-
                 <Button type="submit" variant="contained">
                   Next
                 </Button>
