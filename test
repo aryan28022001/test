@@ -1,22 +1,66 @@
-export const downloadDeclarationHoD = async () => {
-  const response = await axiosInstance.get(
-    "/api/employer/profile/documents/template/declarationHoD",
-    {
-      responseType: "blob", 
-    }
-  );
-  return response;
+const handleDownloadConsentLetterPSU = async () => {
+  try {
+    const response = await downloadConsentLetterPSU();
+    const url = window.URL.createObjectURL(response.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "Consent_Letter_PSU_Format.pdf");
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    showSnackbar("Consent Letter Format downloaded successfully", "success");
+  } catch (error) {
+    console.error("Download error:", error);
+    showSnackbar("Failed to download Consent Letter Format", "error");
+  }
 };
 
-export const downloadConsentLetterPSU = async () => {
-  const response = await axiosInstance.get(
-    "/api/employer/profile/documents/template/consentLetterPSU",
-    {
-      responseType: "blob", 
-    }
-  );
-  return response;
+const handleDownloadDeclarationHoD = async () => {
+  try {
+    const response = await downloadDeclarationHoD();
+    const url = window.URL.createObjectURL(response.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "Declaration_HoD.pdf");
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    showSnackbar("Declaration/Consent Format downloaded successfully", "success");
+  } catch (error) {
+    console.error("Download error:", error);
+    showSnackbar("Failed to download Declaration/Consent Format", "error");
+  }
 };
+
+
+<Button
+  variant="outlined"
+  startIcon={<DownloadIcon />}
+  fullWidth
+  size="small"
+  onClick={handleDownloadConsentLetterPSU}
+>
+  Download Consent Letter Format
+</Button>
+
+
+
+<Button
+  variant="outlined"
+  startIcon={<DownloadIcon />}
+  fullWidth
+  size="small"
+  onClick={handleDownloadDeclarationHoD}
+>
+  Download Declaration/Consent Format
+</Button>
+
+
+
+
+
+
+
 
 import React, { useState, useEffect } from "react";
 import {
