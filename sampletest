@@ -1,0 +1,99 @@
+{
+    "status": true,
+    "message": "Data fetched successfully",
+    "code": 200,
+    "result": {
+        "incorporationCertNo": null,
+        "incorporationRegisteredAddress": null,
+        "dateOfIncorporation": null,
+        "udyogAadhaarNo": null,
+        "udyogAadhaarRegDate": null,
+        "enterpriseType": null,
+        "epfNo": null,
+        "epfRegisterAuthority": null,
+        "esicNo": null,
+        "esicAuthority": null,
+        "turnoverFY1": null,
+        "turnoverFY2": null,
+        "turnoverFY3": null,
+        "turnoverGreater250Cr": false,
+        "payroll": null,
+        "pfReturn3Mon": null,
+        "documents": []
+    }
+}
+----------------------------------------------------------------------------------------
+
+{
+    "status": true,
+    "message": "Data fetched successfully",
+    "code": 200,
+    "result": {
+        "incorporationCertNo": "a",
+        "incorporationRegisteredAddress": "a",
+        "dateOfIncorporation": "2014-09-08",
+        "udyogAadhaarNo": null,
+        "udyogAadhaarRegDate": null,
+        "enterpriseType": null,
+        "epfNo": "22",
+        "epfRegisterAuthority": "s",
+        "esicNo": null,
+        "esicAuthority": null,
+        "turnoverFY1": "33",
+        "turnoverFY2": "77",
+        "turnoverFY3": "798",
+        "turnoverGreater250Cr": false,
+        "payroll": 45,
+        "pfReturn3Mon": 5,
+        "documents": [
+            {
+                "docTypeId": 4,
+                "docTypeName": "Certificate of Incorporation",
+                "filename": "13_Certificate_of_Incorporation_1be96657-2642-4bda-b123-ab5f570fd617.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            },
+            {
+                "docTypeId": 12,
+                "docTypeName": "GST",
+                "filename": "13_GST_eb77eec1-b483-4b40-a183-fee092a73da5.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            },
+            {
+                "docTypeId": 2,
+                "docTypeName": "EPF Certificate",
+                "filename": "13_EPF_Certificate_0369f34e-fc96-4175-a307-d0f35db50427.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            },
+            {
+                "docTypeId": 14,
+                "docTypeName": "Turnover Documents FY2",
+                "filename": "13_Turnover_Documents_FY2_d7c33a3a-4fde-4bc9-a83d-c207c0e1b8b8.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            },
+            {
+                "docTypeId": 7,
+                "docTypeName": "Payroll Documents",
+                "filename": "13_Payroll_Documents_4423d2df-ea30-478e-b0b6-190c4cfa2a0b.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            },
+            {
+                "docTypeId": 8,
+                "docTypeName": "PF Return Documents",
+                "filename": "13_PF_Return_Documents_fd00c824-9f3d-4204-9e75-2e46cc10cfbd.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            },
+            {
+                "docTypeId": 6,
+                "docTypeName": "Turnover Documents FY1",
+                "filename": "13_Turnover_Documents_FY1_acd9d2e7-8cf6-42dc-963e-7e281cfc4030.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            },
+            {
+                "docTypeId": 15,
+                "docTypeName": "Turnover Documents FY3",
+                "filename": "13_Turnover_Documents_FY3_584c985e-47c2-4c41-855e-cebbac7277c2.pdf",
+                "originalFilename": "template-1754304275906.pdf"
+            }
+        ]
+    }
+}
