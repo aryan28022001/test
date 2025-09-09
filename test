@@ -1,67 +1,3 @@
-const handleDownloadConsentLetterPSU = async () => {
-  try {
-    const response = await downloadConsentLetterPSU();
-    const url = window.URL.createObjectURL(response.data);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "Consent_Letter_PSU_Format.pdf");
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode.removeChild(link);
-    showSnackbar("Consent Letter Format downloaded successfully", "success");
-  } catch (error) {
-    console.error("Download error:", error);
-    showSnackbar("Failed to download Consent Letter Format", "error");
-  }
-};
-
-const handleDownloadDeclarationHoD = async () => {
-  try {
-    const response = await downloadDeclarationHoD();
-    const url = window.URL.createObjectURL(response.data);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "Declaration_HoD.pdf");
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode.removeChild(link);
-    showSnackbar("Declaration/Consent Format downloaded successfully", "success");
-  } catch (error) {
-    console.error("Download error:", error);
-    showSnackbar("Failed to download Declaration/Consent Format", "error");
-  }
-};
-
-
-<Button
-  variant="outlined"
-  startIcon={<DownloadIcon />}
-  fullWidth
-  size="small"
-  onClick={handleDownloadConsentLetterPSU}
->
-  Download Consent Letter Format
-</Button>
-
-
-
-<Button
-  variant="outlined"
-  startIcon={<DownloadIcon />}
-  fullWidth
-  size="small"
-  onClick={handleDownloadDeclarationHoD}
->
-  Download Declaration/Consent Format
-</Button>
-
-
-
-
-
-
-
-
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -91,6 +27,7 @@ import {
   UpdateLegaldocuments,
   downloadDeclarationHoD,
   downloadConsentLetterPSU,
+  fetchLegaldocuments,
 } from "../../../services/employerLegalDoc";
 import dayjs from "dayjs";
 import { useSelector } from "react-redux";
@@ -99,6 +36,8 @@ import {
   UploadFile as UploadFileIcon,
 } from "@mui/icons-material";
 import { useSnackbar } from "../../../components/Snackbar";
+import SendIcon from "@mui/icons-material/Send";
+import DownloadButton from "../../../components/downloadfile";
 
 const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   const { showSnackbar } = useSnackbar();
@@ -114,10 +53,20 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
         const data = await fetenterpriseType();
         setEnterpriseType(data);
       } catch (err) {
-        console.error("Failed to fetch organization dropdown", err);
+        console.error("Failed to fetch enterprise dropdown", err);
+      }
+    };
+
+    const fetchUploadedDocumentsDetails = async () => {
+      try {
+        const data = await fetchLegaldocuments();
+        console.log(data);
+      } catch (err) {
+        console.error("Failed to fetch Data", err);
       }
     };
     loadenterpriseType();
+    fetchUploadedDocumentsDetails();
   }, []);
 
   const [uploadedFiles, setUploadedFiles] = useState({
@@ -254,7 +203,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
         return Yup.object(base); // fallback
     }
   };
-
   const formik = useFormik({
     initialValues: {
       IncorporationCertificateNumber: "",
@@ -332,15 +280,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
           }
         )
       );
-
-      // try {
-      //   const response = await UpdateLegaldocuments(formData);
-      //   console.log(response.data.message);
-      //   showSnackbar(response.message || "Form submitted successfully");
-      //   goToNextTab();
-      // } catch (error) {
-      //   showSnackbar(`Error: ${error.response.data.message}`, "error");
-      // }
 
       try {
         const response = await UpdateLegaldocuments(formData);
@@ -1179,14 +1118,11 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       <Typography variant="body1" sx={{ mb: 1 }}>
                         Consent Letter Format
                       </Typography>
-                      <Button
-                        variant="outlined"
-                        startIcon={<DownloadIcon />}
-                        fullWidth
-                        size="small"
-                      >
-                        Download Consent Letter Format
-                      </Button>
+
+                      <DownloadButton
+                        downloadFn={downloadConsentLetterPSU}
+                        label="Download Consent Letter PSU"
+                      />
                     </Grid>
 
                     {/* Right side: Upload Signed Consent Letter */}
@@ -1246,14 +1182,11 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       <Typography variant="body1" sx={{ mb: 1 }}>
                         Declaration/Consent letter Format
                       </Typography>
-                      <Button
-                        variant="outlined"
-                        startIcon={<DownloadIcon />}
-                        fullWidth
-                        size="small"
-                      >
-                        Download Declaration/Consent Format
-                      </Button>
+
+                      <DownloadButton
+                        downloadFn={downloadDeclarationHoD}
+                        label="Download Declaration HoD"
+                      />
                     </Grid>
 
                     {/* Right side: Upload Signed Consent Letter */}
@@ -1298,12 +1231,20 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                   mt: 2,
                 }}
               >
-                <Button onClick={() => goToBackTab()} variant="contained">
+                <Button
+                  onClick={() => goToBackTab()}
+                  variant="contained"
+                  startIcon={<SendIcon sx={{ transform: "scaleX(-1)" }} />}
+                >
                   Back
                 </Button>
 
-                <Button type="submit" variant="contained">
-                  Next
+                <Button
+                  type="submit"
+                  variant="contained"
+                  endIcon={<SendIcon />}
+                >
+                  Save & Next
                 </Button>
               </Box>
             </CardContent>
@@ -1315,753 +1256,3 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
 };
 
 export default LegalDocument;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import React, { useState, useEffect } from "react";
-import {
-  Box,
-  Grid,
-  Card,
-  CardHeader,
-  CardContent,
-  Divider,
-  TextField,
-  Typography,
-  Autocomplete,
-  Button,
-} from "@mui/material";
-import PinDropTwoToneIcon from "@mui/icons-material/PinDropTwoTone";
-import ContactEmergencyIcon from "@mui/icons-material/ContactEmergency";
-import { useFormik } from "formik";
-import * as Yup from "yup";
-import {
-  fetchdivisionsType,
-  fetchdistrictType,
-  fetchBlockType,
-  fetchstateType,
-  fetchdivisionType,
-} from "../../../services/dropdownService";
-import {
-  fetchEmployer_Location_ContactDetail,
-  update_Employer_Location_ContactDetail,
-} from "../../../services/employerlocationandContact";
-import { useSnackbar } from "../../../components/Snackbar";
-
-const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
-  const [stateOptions, setStateOptions] = useState([]);
-  const [divisionOptions, setDivisionOptions] = useState([]);
-  const [districtOptions, setDistrictOptions] = useState([]);
-  const [blockOptions, setBlockOptions] = useState([]);
-  const [talukaOptions, setTalukaOptions] = useState([]);
-  const { showSnackbar } = useSnackbar();
-
-  const formik = useFormik({
-    initialValues: {
-      officeAddress: "",
-      pincode: "",
-      state: null,
-      Division: null,
-      district: null,
-      Block: null,
-      otherDivision: "",
-      otherDistrict: "",
-      otherBlock: "",
-      firstName: "",
-      middleName: "",
-      lastName: "",
-      designation: "",
-      mobileNo: "",
-      officeContactNo: "",
-      email: "",
-    },
-
-    validationSchema: Yup.object({
-      officeAddress: Yup.string().required("Office Address is Required"),
-      state: Yup.object().nullable().required("State/UT is required"),
-
-      Division: Yup.mixed()
-        .nullable()
-        .when("state", {
-          is: (state) => state?.id === 5,
-          then: (schema) => schema.required("Division is required"),
-          otherwise: (schema) => schema.notRequired(),
-        }),
-
-      district: Yup.mixed()
-        .nullable()
-        .when("state", {
-          is: (state) => state?.id === 5,
-          then: (schema) => schema.required("District is required"),
-          otherwise: (schema) => schema.notRequired(),
-        }),
-
-      Block: Yup.mixed().nullable(), // Optional in all cases
-
-      otherDivision: Yup.string()
-        .nullable()
-        .when("state", {
-          is: (state) => state?.id !== 5,
-          then: (schema) => schema.required("Division is required"),
-        }),
-
-      otherDistrict: Yup.string().when("state", {
-        is: (state) => state?.id !== 5,
-        then: (schema) => schema.required("District is required"),
-        otherwise: (schema) => schema.nullable(),
-      }),
-
-      otherBlock: Yup.string().nullable(), // Optional
-
-      pincode: Yup.string()
-        .matches(/^\d{6}$/, "Pincode must be exactly 6 digits")
-        .required("Pincode is Required"),
-
-      firstName: Yup.string()
-        .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
-        .required("First Name is Required"),
-
-      middleName: Yup.string().matches(
-        /^[A-Za-z]*$/,
-        "Only alphabetic characters allowed"
-      ),
-
-      lastName: Yup.string()
-        .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
-        .required("Last Name is Required"),
-
-      designation: Yup.string().required("Designation is Required"),
-
-      officeContactNo: Yup.string()
-        .matches(/^\d{10}$/, "Office Contact Number must be exactly 10 digits")
-        .required("Office Contact Number is Required"),
-    }),
-
-    onSubmit: async (values) => {
-      const isBihar = values.state?.id === 5;
-      const payload = {
-        locationDetails: {
-          officeAddress: values.officeAddress,
-          stateId: values.state?.id ?? null,
-
-          divisionId: isBihar ? values.Division?.id ?? null : null,
-          districtId: isBihar ? values.district?.id ?? null : null,
-          blockId: isBihar ? values.Block?.id ?? null : null,
-
-          otherDivision: !isBihar ? values.otherDivision : null,
-          otherDistrict: !isBihar ? values.otherDistrict : null,
-          otherBlock: !isBihar ? values.otherBlock : null,
-          pincode: values.pincode,
-        },
-        contactDetails: {
-          firstName: values.firstName,
-          middleName: values.middleName,
-          lastName: values.lastName,
-          designation: values.designation,
-          mobileNo: values.mobileNo,
-          officeContactNo: values.officeContactNo,
-          email: values.email,
-        },
-      };
-      try {
-        const response = await update_Employer_Location_ContactDetail(payload);
-        showSnackbar(response.message || "Form submitted successfully");
-        markTabAsCompleted();
-        goToNextTab();
-      } catch (error) {
-        console.log(error);
-        showSnackbar(
-          `Error: ${error.response?.data?.message || error.message}`,
-          "error"
-        );
-      }
-    },
-    validateOnChange: true,
-    validateOnBlur: true,
-    enableReinitialize: true,
-  });
-
-  // Load all dropdowns and initial values in a single effect
-  useEffect(() => {
-    const loadDivisionDropdown = async () => {
-      try {
-        const data = await fetchdivisionsType();
-        setDivisionOptions(data);
-      } catch (err) {
-        console.error("Failed to fetch division dropdown", err);
-      }
-    };
-
-    const loadStateList = async () => {
-      try {
-        const data = await fetchstateType();
-        setStateOptions(data);
-      } catch (err) {
-        console.error("Failed to fetch organization dropdown", err);
-      }
-    };
-
-    // Main effect for loading and setting dependent dropdowns and values
-    const loadEmployer_location_ContactDetails = async () => {
-      try {
-        const data = await fetchEmployer_Location_ContactDetail();
-        if (data?.locationDetails && data?.contactDetails) {
-          const loc = data.locationDetails;
-          const contact = data.contactDetails;
-          const state = loc?.state || null;
-          const isBihar = state?.id === 5;
-
-          let _divisionOptions = [];
-          let selectedDivision = null;
-          let _districtOptions = [];
-          let selectedDistrict = null;
-          let _blockOptions = [];
-          let selectedBlock = null;
-
-          if (isBihar) {
-            // Division
-            const divisionRes = await fetchdivisionType(state.id);
-            _divisionOptions = divisionRes.result || [];
-            selectedDivision = _divisionOptions.find((d) => d.id === loc.division?.id) || null;
-
-            // District
-            if (selectedDivision) {
-              const districtRes = await fetchdistrictType(selectedDivision.id);
-              _districtOptions = districtRes.result || [];
-              selectedDistrict = _districtOptions.find((d) => d.id === loc.district?.id) || null;
-
-              // Block
-              if (selectedDistrict) {
-                const blockRes = await fetchBlockType(selectedDistrict.id);
-                _blockOptions = blockRes.result || [];
-                selectedBlock = _blockOptions.find((b) => b.id === loc.block?.id) || null;
-              }
-            }
-          }
-
-          setDivisionOptions(_divisionOptions);
-          setDistrictOptions(_districtOptions);
-          setBlockOptions(_blockOptions);
-
-          // Set all initial values at once
-          formik.setValues({
-            officeAddress: loc.officeAddress || "",
-            pincode: loc.pincode || "",
-            state: state,
-            Division: selectedDivision,
-            district: selectedDistrict,
-            Block: selectedBlock,
-            otherDivision: !isBihar ? loc.otherDivision ?? "" : "",
-            otherDistrict: !isBihar ? loc.otherDistrict ?? "" : "",
-            otherBlock: !isBihar ? loc.otherBlock ?? "" : "",
-            firstName: contact.firstName || "",
-            middleName: contact.middleName || "",
-            lastName: contact.lastName || "",
-            designation: contact.designation || "",
-            mobileNo: contact.mobileNo || "",
-            officeContactNo: contact.officeContactNo || "",
-            email: contact.email || "",
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch location/contact details", err);
-      }
-    };
-
-    loadDivisionDropdown();
-    loadStateList();
-    loadEmployer_location_ContactDetails();
-  }, []);
-
-  // Only reload dependent dropdowns if user changes state/division/district manually
-  useEffect(() => {
-    // Only reload if not set by initial data load
-    if (formik.values.state && !formik.values.Division && formik.values.state.id === 5) {
-      const loadDivision = async () => {
-        try {
-          const data = await fetchdivisionType(formik.values.state.id);
-          setDivisionOptions(data.result || []);
-          setDistrictOptions([]);
-          formik.setFieldValue("district", null);
-        } catch (err) {
-          setDivisionOptions([]);
-        }
-      };
-      loadDivision();
-    }
-    // For non-Bihar states, clear division/district/block dropdowns
-    if (formik.values.state && formik.values.state.id !== 5) {
-      setDivisionOptions([]);
-      setDistrictOptions([]);
-      setBlockOptions([]);
-      formik.setFieldValue("Division", null);
-      formik.setFieldValue("district", null);
-      formik.setFieldValue("Block", null);
-    }
-  }, [formik.values.state]);
-
-  useEffect(() => {
-    if (formik.values.Division && !formik.values.district) {
-      const loadDistricts = async () => {
-        try {
-          const data = await fetchdistrictType(formik.values.Division.id);
-          setDistrictOptions(data.result || []);
-          setBlockOptions([]);
-          formik.setFieldValue("Block", null);
-        } catch (error) {
-          setDistrictOptions([]);
-        }
-      };
-      loadDistricts();
-    }
-  }, [formik.values.Division]);
-
-  useEffect(() => {
-    if (formik.values.district && !formik.values.Block) {
-      const loadBlocks = async () => {
-        try {
-          const data = await fetchBlockType(formik.values.district.id);
-          setBlockOptions(data.result || []);
-        } catch (error) {
-          setBlockOptions([]);
-        }
-      };
-      loadBlocks();
-    }
-  }, [formik.values.district]);
-
-  return (
-    <Box component="form" onSubmit={formik.handleSubmit}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ border: "1px solid #ccc", borderRadius: 2 }}>
-            <CardHeader
-              title={
-                <Typography
-                  variant="h7"
-                  sx={{ display: "flex", alignItems: "center" }}
-                >
-                  <PinDropTwoToneIcon sx={{ mr: 1 }} />
-                  Organisation Registered Office Address
-                </Typography>
-              }
-            />
-            <Divider />
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 12 }}>
-                  <TextField
-                    required
-                    size="small"
-                    fullWidth
-                    id="officeAddress"
-                    name="officeAddress"
-                    label="Organisation Registered Office Address"
-                    multiline
-                    rows={4}
-                    value={formik.values.officeAddress}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={
-                      formik.touched.officeAddress &&
-                      Boolean(formik.errors.officeAddress)
-                    }
-                    helperText={
-                      formik.touched.officeAddress &&
-                      formik.errors.officeAddress
-                    }
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Autocomplete
-                    size="small"
-                    required
-                    options={stateOptions}
-                    getOptionLabel={(option) => option.label}
-                    value={formik.values.state}
-                    onChange={(e, newValue) =>
-                      formik.setFieldValue("state", newValue)
-                    }
-                    fullWidth
-                    renderInput={(params) => (
-                      <TextField
-                        sx={{ width: "100%", mt: 2 }}
-                        {...params}
-                        label="State"
-                        variant="outlined"
-                        error={
-                          formik.touched.state && Boolean(formik.errors.state)
-                        }
-                        helperText={formik.touched.state && formik.errors.state}
-                      />
-                    )}
-                  />
-                </Grid>
-                {formik?.values?.state?.id === 5 ? (
-                  <>
-                    {/* Division Dropdown */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={divisionOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.Division}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("Division", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="Division"
-                            variant="outlined"
-                            error={
-                              formik.touched.Division &&
-                              Boolean(formik.errors.Division)
-                            }
-                            helperText={
-                              formik.touched.Division && formik.errors.Division
-                            }
-                          />
-                        )}
-                      />
-                    </Grid>
-
-                    {/* District Dropdown */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={districtOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.district}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("district", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="District"
-                            variant="outlined"
-                            error={
-                              formik.touched.district &&
-                              Boolean(formik.errors.district)
-                            }
-                            helperText={
-                              formik.touched.district && formik.errors.district
-                            }
-                          />
-                        )}
-                      />
-                    </Grid>
-
-                    {/* Block Dropdown */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        size="small"
-                        options={blockOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.Block}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("Block", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="Block"
-                            variant="outlined"
-                            error={
-                              formik.touched.Block &&
-                              Boolean(formik.errors.Block)
-                            }
-                            helperText={
-                              formik.touched.Block && formik.errors.Block
-                            }
-                          />
-                        )}
-                      />
-                    </Grid>
-                  </>
-                ) : (
-                  <>
-                    {/* Other Division TextField */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        required
-                        id="otherDivision"
-                        name="otherDivision"
-                        label="Division"
-                        sx={{ width: "100%", mt: 2 }}
-                        value={formik.values.otherDivision}
-                        onChange={formik.handleChange}
-                        error={
-                          formik.touched.otherDivision &&
-                          Boolean(formik.errors.otherDivision)
-                        }
-                        helperText={
-                          formik.touched.otherDivision &&
-                          formik.errors.otherDivision
-                        }
-                      />
-                    </Grid>
-
-                    {/* Other District TextField */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        required
-                        id="otherDistrict"
-                        name="otherDistrict"
-                        label="District"
-                        sx={{ width: "100%", mt: 2 }}
-                        value={formik.values.otherDistrict}
-                        onChange={formik.handleChange}
-                        error={
-                          formik.touched.otherDistrict &&
-                          Boolean(formik.errors.otherDistrict)
-                        }
-                        helperText={
-                          formik.touched.otherDistrict &&
-                          formik.errors.otherDistrict
-                        }
-                      />
-                    </Grid>
-
-                    {/* Other Block TextField */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        id="otherBlock"
-                        name="otherBlock"
-                        label="Block"
-                        sx={{ width: "100%", mt: 2 }}
-                        value={formik.values.otherBlock}
-                        onChange={formik.handleChange}
-                        error={
-                          formik.touched.otherBlock &&
-                          Boolean(formik.errors.otherBlock)
-                        }
-                        helperText={
-                          formik.touched.otherBlock && formik.errors.otherBlock
-                        }
-                      />
-                    </Grid>
-                  </>
-                )}
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField
-                    required
-                    label="Pincode"
-                    name="pincode"
-                    value={formik.values.pincode}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={
-                      formik.touched.pincode && Boolean(formik.errors.pincode)
-                    }
-                    helperText={formik.touched.pincode && formik.errors.pincode}
-                    fullWidth
-                    size="small"
-                    sx={{ width: "100%", mt: 2 }}
-                  />
-                </Grid>
-              </Grid>
-              <Box sx={{ mt: 8 }}>
-                <Typography
-                  variant="h7"
-                  sx={{ display: "flex", alignItems: "center" }}
-                >
-                  <ContactEmergencyIcon sx={{ mr: 1 }} />
-                  Contact Information
-                </Typography>
-                <Divider sx={{ mt: 2 }} />
-                <Grid container spacing={2} mb={1}>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="firstName"
-                      name="firstName"
-                      label="First Name"
-                      value={formik.values.firstName}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.firstName &&
-                        Boolean(formik.errors.firstName)
-                      }
-                      helperText={
-                        formik.touched.firstName && formik.errors.firstName
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      id="middleName"
-                      name="middleName"
-                      label="Middle Name"
-                      value={formik.values.middleName}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.middleName &&
-                        Boolean(formik.errors.middleName)
-                      }
-                      helperText={
-                        formik.touched.middleName && formik.errors.middleName
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="lastName"
-                      name="lastName"
-                      label="Last Name"
-                      value={formik.values.lastName}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.lastName &&
-                        Boolean(formik.errors.lastName)
-                      }
-                      helperText={
-                        formik.touched.lastName && formik.errors.lastName
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="designation"
-                      name="designation"
-                      label="Designation"
-                      value={formik.values.designation}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.designation &&
-                        Boolean(formik.errors.designation)
-                      }
-                      helperText={
-                        formik.touched.designation && formik.errors.designation
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      id="mobileNo"
-                      name="mobileNo"
-                      label="Mobile Number"
-                      value={formik.values.mobileNo}
-                      onChange={formik.handleChange}
-                      InputProps={{
-                        readOnly: true, // keep it readOnly instead of disabled
-                      }}
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="officeContactNo"
-                      name="officeContactNo"
-                      label="Office Contact Number"
-                      value={formik.values.officeContactNo}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.officeContactNo &&
-                        Boolean(formik.errors.officeContactNo)
-                      }
-                      helperText={
-                        formik.touched.officeContactNo &&
-                        formik.errors.officeContactNo
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      id="email"
-                      name="email"
-                      label="Email Id"
-                      value={formik.values.email}
-                      onChange={formik.handleChange}
-                      InputProps={{
-                        readOnly: true, // keep it readOnly instead of disabled
-                      }}
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: 2,
-                  mt: 2,
-                }}
-              >
-                <Button onClick={() => goToBackTab()} variant="contained">
-                  Back
-                </Button>
-                <Button type="submit" variant="contained">
-                  Next
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-};
-
-export default LocationContact;
