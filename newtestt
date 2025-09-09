@@ -3,22 +3,17 @@ import {
   Box,
   Grid,
   Card,
-  CardHeader,
   CardContent,
   Divider,
   TextField,
   Typography,
   Autocomplete,
   Button,
-  IconButton,
-  Paper,
   Stack,
 } from "@mui/material";
-import PinDropTwoToneIcon from "@mui/icons-material/PinDropTwoTone";
 import ContactEmergencyIcon from "@mui/icons-material/ContactEmergency";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -31,10 +26,6 @@ import {
 } from "../../../services/employerLegalDoc";
 import dayjs from "dayjs";
 import { useSelector } from "react-redux";
-import {
-  Download as DownloadIcon,
-  UploadFile as UploadFileIcon,
-} from "@mui/icons-material";
 import { useSnackbar } from "../../../components/Snackbar";
 import SendIcon from "@mui/icons-material/Send";
 import DownloadButton from "../../../components/downloadfile";
@@ -49,17 +40,14 @@ const docTypeIdToKey = {
   8: "pfReturnDocuments",
   6: "turnoverDocumentsFy1",
   15: "turnoverDocumentsFy3",
-  // Add more mappings as needed
 };
 
 const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   const { showSnackbar } = useSnackbar();
   const [enterpriseType, setEnterpriseType] = useState([]);
-  const organizationType = "Bihar Registered Companies";
   const { userInfo } = useSelector((state) => state.auth);
   const orgTypeId = userInfo?.userDetails?.organizationType?.id;
 
-  // This state will store fetched data from API for "back" functionality
   const [apiData, setApiData] = useState(null);
 
   // Uploaded files state (for new uploads)
@@ -79,7 +67,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     declarationHoD: null,
   });
 
-  // Load dropdowns and API data on mount
   useEffect(() => {
     const loadenterpriseType = async () => {
       try {
@@ -103,7 +90,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     fetchUploadedDocumentsDetails();
   }, []);
 
-  // Helper: Find dropdown option by ID
   function findEnterpriseTypeOptionById(id) {
     if (!id || !enterpriseType?.length) return null;
     return enterpriseType.find((item) => item.id === id) ?? null;
@@ -113,13 +99,12 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   useEffect(() => {
     if (!apiData) return;
 
-    // Prepare mapped initial values from API result
     const initialValuesFromApi = {
       IncorporationCertificateNumber: apiData.incorporationCertNo || "",
       RegisteredAddress: apiData.incorporationRegisteredAddress || "",
       DateofIncorporation: apiData.dateOfIncorporation || "",
       UdyogCertificateNumber: apiData.udyogAadhaarNo || "",
-      TypeofEnterprise: findEnterpriseTypeOptionById(apiData.enterpriseType), // assumes dropdown values are {id, label}
+      TypeofEnterprise: findEnterpriseTypeOptionById(apiData.enterpriseType),
       DateofRegistration: apiData.udyogAadhaarRegDate || "",
       epfNumber: apiData.epfNo || "",
       RegisteredAuthority: apiData.epfRegisterAuthority || "",
@@ -130,7 +115,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       TurnoverFY_2022_23: apiData.turnoverFY3 || "",
       Payroll: apiData.payroll ?? "",
       PF_Return_Last_3_Months: apiData.pfReturn3Mon ?? "",
-      // File names for display
       gstFileName: "",
       certificateOfIncorporationFileName: "",
       udyogAadhaarCertificateFileName: "",
@@ -156,7 +140,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       });
     }
 
-    // Set Formik values
     formik.setValues(initialValuesFromApi);
 
     // Prepare uploadedFiles for display (no file object, but display name + filename)
@@ -165,7 +148,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       apiData.documents.forEach((doc) => {
         const key = docTypeIdToKey[doc.docTypeId];
         if (key) {
-          // For download later, store docTypeId and docTypeName
           filesState[key] = {
             url: "", // will be used for download link in future
             name: doc.docTypeName + " (" + (doc.originalFilename || doc.filename) + ")",
@@ -194,12 +176,58 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     formik.setFieldValue(`${fieldKey}FileName`, file.name);
   };
 
-  // For file link, display name; if no file, show "No file chosen"
-  const renderFileLink = (fileObj) => {
-    return fileObj && fileObj.name ? (
-      <span>{fileObj.name}</span>
-    ) : (
-      "No file chosen"
+  // Helper: get previous doc from API by docTypeId
+  const getPreviousDoc = (docTypeId) =>
+    apiData?.documents?.find((doc) => doc.docTypeId === docTypeId);
+
+  // File display: show previous uploaded doc if exists and no new upload, otherwise show uploaded file
+  const renderFileSection = (fieldKey, label, docTypeId) => {
+    const uploadedFile = uploadedFiles[fieldKey];
+    const previousDoc = getPreviousDoc(docTypeId);
+
+    const showPrevious = previousDoc && !uploadedFile?.file;
+
+    return (
+      <Stack direction="row" alignItems="center" spacing={2}>
+        <Button
+          variant="outlined"
+          component="label"
+          size="small"
+        >
+          {uploadedFile?.file ? "Change File" : "Choose File"}
+          <input
+            type="file"
+            accept="application/pdf"
+            hidden
+            onChange={(e) => handleFileUpload(fieldKey, e.target.files[0])}
+          />
+        </Button>
+        {showPrevious && (
+          <Typography variant="body2" color="secondary">
+            Previous uploaded doc:&nbsp;
+            <a
+              href={"#"} // You may update this to actual download link if available
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: "underline", fontWeight: 600 }}
+            >
+              {previousDoc.originalFilename || previousDoc.filename}
+            </a>
+          </Typography>
+        )}
+        {uploadedFile?.file && (
+          <Typography variant="body2">
+            <a
+              href={uploadedFile.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: "underline", fontWeight: 600 }}
+            >
+              {uploadedFile.name}
+            </a>
+          </Typography>
+        )}
+      </Stack>
     );
   };
 
@@ -212,12 +240,10 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       DateofIncorporation: Yup.string().required(
         "Date of Incorporation is required"
       ),
-
       epfNumber: Yup.string().required("EPF Number is required"),
       RegisteredAuthority: Yup.string().required(
         "Registered Authority is required"
       ),
-
       TurnoverFY_2024_25: Yup.string().required(
         "Turnover for FY 2024-25 is required"
       ),
@@ -276,7 +302,6 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     }
   };
 
-  // Formik setup
   const formik = useFormik({
     initialValues: {
       IncorporationCertificateNumber: "",
@@ -365,14 +390,72 @@ const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   return (
     <Box component="form" onSubmit={formik.handleSubmit}>
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 12 }}>
+        <Grid xs={12} sm={12} item>
           <Card sx={{ border: "1px solid #ccc", borderRadius: 2 }}>
             <CardContent>
-              {/* ... All UI remains unchanged, just use uploadedFiles and formik as before ... */}
-              {/* For file display, now shows the name from API if present, or uploaded name */}
-              {/* For download, you can later add a download button using docTypeId/filename */}
+              {/* Example for GST Certificate */}
+              <Box sx={{ mt: 4 }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    fontWeight: 600,
+                  }}
+                >
+                  <ContactEmergencyIcon color="primary" sx={{ mr: 1 }} />
+                  Upload GST Certificate
+                </Typography>
+                <Divider sx={{ mt: 2 }} />
+                <Grid container spacing={2}>
+                  <Grid xs={12} sm={6} item>
+                    {renderFileSection("gst", "GST Certificate", 12)}
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {/* Example for Certificate of Incorporation */}
+              <Box sx={{ mt: 4 }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    fontWeight: 600,
+                  }}
+                >
+                  <ContactEmergencyIcon color="primary" sx={{ mr: 1 }} />
+                  Certificate of Incorporation
+                </Typography>
+                <Divider sx={{ mt: 2 }} />
+                <Grid container spacing={2}>
+                  <Grid xs={12} sm={6} item>
+                    <TextField
+                      label="Incorporation Certificate Number"
+                      name="IncorporationCertificateNumber"
+                      value={formik.values.IncorporationCertificateNumber}
+                      onChange={formik.handleChange}
+                      error={
+                        formik.touched.IncorporationCertificateNumber &&
+                        Boolean(formik.errors.IncorporationCertificateNumber)
+                      }
+                      helperText={
+                        formik.touched.IncorporationCertificateNumber &&
+                        formik.errors.IncorporationCertificateNumber
+                      }
+                      fullWidth
+                      size="small"
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                  <Grid xs={12} sm={6} item>
+                    {renderFileSection("certificateOfIncorporation", "Certificate of Incorporation", 4)}
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {/* Repeat the above pattern for all other document types */}
               {/* ... */}
-              {/* --- Rest of the form code goes here (not shown for brevity, unchanged) --- */}
 
               <Box
                 sx={{
