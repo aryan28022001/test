@@ -1,0 +1,608 @@
+import React, { useState, useEffect } from "react";
+import {
+  Box,
+  Grid,
+  Card,
+  CardContent,
+  Divider,
+  TextField,
+  Typography,
+  Autocomplete,
+  Button,
+  Stack,
+} from "@mui/material";
+import ContactEmergencyIcon from "@mui/icons-material/ContactEmergency";
+import { useFormik } from "formik";
+import * as Yup from "yup";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { fetenterpriseType } from "../../../services/dropdownService";
+import {
+  UpdateLegaldocuments,
+  downloadDeclarationHoD,
+  downloadConsentLetterPSU,
+  fetchLegaldocuments,
+} from "../../../services/employerLegalDoc";
+import dayjs from "dayjs";
+import { useSelector } from "react-redux";
+import { useSnackbar } from "../../../components/Snackbar";
+import SendIcon from "@mui/icons-material/Send";
+import DownloadButton from "../../../components/downloadfile";
+
+const LegalDocument = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
+  const { showSnackbar } = useSnackbar();
+  const [enterpriseType, setEnterpriseType] = useState([]);
+  const { userInfo } = useSelector((state) => state.auth);
+  const orgTypeId = userInfo?.userDetails?.organizationType?.id;
+
+  const [apiData, setApiData] = useState(null);
+  const [prevDocuments, setPrevDocuments] = useState({});
+  const [uploadedFiles, setUploadedFiles] = useState({
+    gst: null,
+    esicCertificate: null,
+    epfCertificate: null,
+    declarationForm: null,
+    certificateOfIncorporation: null,
+    udyogAadhaarCertificate: null,
+    turnoverDocumentsFy1: null,
+    turnoverDocumentsFy2: null,
+    turnoverDocumentsFy3: null,
+    payrollDocuments: null,
+    pfReturnDocuments: null,
+    consentLetterPSU: null,
+    declarationHoD: null,
+  });
+
+  useEffect(() => {
+    const loadenterpriseType = async () => {
+      try {
+        const data = await fetenterpriseType();
+        setEnterpriseType(data);
+      } catch (err) {
+        console.error("Failed to fetch enterprise dropdown", err);
+      }
+    };
+
+    const fetchUploadedDocumentsDetails = async () => {
+      try {
+        const data = await fetchLegaldocuments();
+        if (data?.result) {
+          setApiData(data.result);
+          const prevDocs = {};
+          (data.result.documents || []).forEach((doc) => {
+            prevDocs[doc.docTypeName] = doc;
+          });
+          setPrevDocuments(prevDocs);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Data", err);
+      }
+    };
+    loadenterpriseType();
+    fetchUploadedDocumentsDetails();
+  }, []);
+
+  const docMap = {
+    gst: "GST",
+    esicCertificate: "ESIC",
+    epfCertificate: "EPF Certificate",
+    certificateOfIncorporation: "Certificate of Incorporation",
+    udyogAadhaarCertificate: "Udyog Aadhaar",
+    turnoverDocumentsFy1: "Turnover Documents FY1",
+    turnoverDocumentsFy2: "Turnover Documents FY2",
+    turnoverDocumentsFy3: "Turnover Documents FY3",
+    payrollDocuments: "Payroll Documents",
+    pfReturnDocuments: "PF Return Documents",
+    consentLetterPSU: "Consent Letter PSU",
+    declarationHoD: "Declaration HoD",
+    declarationForm: "Declaration Form",
+  };
+
+  const getPrevUploadedDoc = (key) => prevDocuments[docMap[key]];
+
+  const getInitialValues = () => {
+    const d = apiData || {};
+    const enterpriseTypeObj =
+      enterpriseType.find((et) => et.id === d.enterpriseType) || null;
+    return {
+      IncorporationCertificateNumber: d.incorporationCertNo || "",
+      RegisteredAddress: d.incorporationRegisteredAddress || "",
+      DateofIncorporation: d.dateOfIncorporation || "",
+      UdyogCertificateNumber: d.udyogAadhaarNo || "",
+      TypeofEnterprise: enterpriseTypeObj,
+      DateofRegistration: d.udyogAadhaarRegDate || "",
+      epfNumber: d.epfNo || "",
+      RegisteredAuthority: d.epfRegisterAuthority || "",
+      esicNumber: d.esicNo || "",
+      esicAuthority: d.esicAuthority || "",
+      TurnoverFY_2024_25: d.turnoverFY1 || "",
+      TurnoverFY_2023_24: d.turnoverFY2 || "",
+      TurnoverFY_2022_23: d.turnoverFY3 || "",
+      Payroll: d.payroll || "",
+      PF_Return_Last_3_Months: d.pfReturn3Mon || "",
+      gstFileName: getPrevUploadedDoc("gst")?.originalFilename || "",
+      certificateOfIncorporationFileName:
+        getPrevUploadedDoc("certificateOfIncorporation")?.originalFilename || "",
+      udyogAadhaarCertificateFileName:
+        getPrevUploadedDoc("udyogAadhaarCertificate")?.originalFilename || "",
+      epfCertificateFileName:
+        getPrevUploadedDoc("epfCertificate")?.originalFilename || "",
+      esicCertificateFileName:
+        getPrevUploadedDoc("esicCertificate")?.originalFilename || "",
+      turnoverDocumentsFy1FileName:
+        getPrevUploadedDoc("turnoverDocumentsFy1")?.originalFilename || "",
+      turnoverDocumentsFy2FileName:
+        getPrevUploadedDoc("turnoverDocumentsFy2")?.originalFilename || "",
+      turnoverDocumentsFy3FileName:
+        getPrevUploadedDoc("turnoverDocumentsFy3")?.originalFilename || "",
+      payrollDocumentsFileName:
+        getPrevUploadedDoc("payrollDocuments")?.originalFilename || "",
+      pfReturnDocumentsFileName:
+        getPrevUploadedDoc("pfReturnDocuments")?.originalFilename || "",
+      consentLetterPSUFileName:
+        getPrevUploadedDoc("consentLetterPSU")?.originalFilename || "",
+      declarationHoDFileName:
+        getPrevUploadedDoc("declarationHoD")?.originalFilename || "",
+      declarationFormFileName:
+        getPrevUploadedDoc("declarationForm")?.originalFilename || "",
+    };
+  };
+
+  const getValidationSchema = (orgTypeId) => {
+    const base = {
+      IncorporationCertificateNumber: Yup.string().required(
+        "Incorporation Certificate Number is required"
+      ),
+      RegisteredAddress: Yup.string().required("Registered Address is required"),
+      DateofIncorporation: Yup.string().required(
+        "Date of Incorporation is required"
+      ),
+      epfNumber: Yup.string().required("EPF Number is required"),
+      RegisteredAuthority: Yup.string().required(
+        "Registered Authority is required"
+      ),
+      TurnoverFY_2024_25: Yup.string().required(
+        "Turnover for FY 2024-25 is required"
+      ),
+      TurnoverFY_2023_24: Yup.string().required(
+        "Turnover for FY 2023-24 is required"
+      ),
+      TurnoverFY_2022_23: Yup.string().required(
+        "Turnover for FY 2022-23 is required"
+      ),
+    };
+
+    switch (orgTypeId) {
+      case 1:
+        return Yup.object({
+          ...base,
+          UdyogCertificateNumber: Yup.string().required(
+            "Udyog Aadhaar Number is required"
+          ),
+          TypeofEnterprise: Yup.object().required(
+            "Type of Enterprise is required"
+          ),
+          DateofRegistration: Yup.string().required(
+            "Udyog Aadhaar Registration Date is required"
+          ),
+        });
+
+      case 2:
+        return Yup.object({
+          IncorporationCertificateNumber: Yup.string().required(
+            "Incorporation Certificate Number is required"
+          ),
+          RegisteredAddress: Yup.string().required(
+            "Registered Address is required"
+          ),
+          DateofIncorporation: Yup.string().required(
+            "Date of Incorporation is required"
+          ),
+          Payroll: Yup.string().required("Payroll is required"),
+          PF_Return_Last_3_Months: Yup.string().required(
+            "PF Return for last 3 months is required"
+          ),
+        });
+
+      case 3:
+        return Yup.object({
+          IncorporationCertificateNumber: Yup.string().required(
+            "Incorporation Certificate Number is required"
+          ),
+          RegisteredAddress: Yup.string().required(
+            "Registered Address is required"
+          ),
+          DateofIncorporation: Yup.string().required(
+            "Date of Incorporation is required"
+          ),
+          certificateOfIncorporationFileName: Yup.string().required(
+            "Certificate of Incorporation is required"
+          ),
+          consentLetterPSUFileName: Yup.string().required(
+            "Consent letter is required"
+          ),
+        });
+
+      case 4:
+        return Yup.object({
+          declarationHoDFileName: Yup.string().required(
+            "Declaration from HoD is required"
+          ),
+        });
+
+      default:
+        return Yup.object(base);
+    }
+  };
+
+  const handleFileUpload = (fieldKey, file) => {
+    if (!file) return;
+    const objectURL = URL.createObjectURL(file);
+    setUploadedFiles((prev) => ({
+      ...prev,
+      [fieldKey]: { file, url: objectURL, name: file.name },
+    }));
+    setPrevDocuments((prevDocs) => {
+      const docTypeName = docMap[fieldKey];
+      const updated = { ...prevDocs };
+      if (docTypeName) delete updated[docTypeName];
+      return updated;
+    });
+    formik.setFieldValue(`${fieldKey}FileName`, file.name);
+  };
+
+  const renderUploadSection = (fieldKey, buttonLabel) => {
+    const prevDoc = getPrevUploadedDoc(fieldKey);
+    return (
+      <Stack direction="row" alignItems="center" spacing={2}>
+        <Button variant="outlined" component="label" fullWidth size="small">
+          {uploadedFiles[fieldKey] ? "Change File" : buttonLabel}
+          <input
+            type="file"
+            accept="application/pdf"
+            hidden
+            onChange={(e) => handleFileUpload(fieldKey, e.target.files[0])}
+          />
+        </Button>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          {uploadedFiles[fieldKey]
+            ? (
+              <a
+                href={uploadedFiles[fieldKey].url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: "underline", color: "#1976d2" }}
+              >
+                {uploadedFiles[fieldKey].name}
+              </a>
+            )
+            : prevDoc
+              ? (
+                <span>
+                  Previous uploaded doc: <strong>{prevDoc.originalFilename}</strong>
+                  {prevDoc.filename
+                    ? (
+                      <a
+                        href={`/api/download/${prevDoc.filename}`}
+                        style={{ marginLeft: 8, color: "#1976d2" }}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        (Download)
+                      </a>
+                    )
+                    : null}
+                </span>
+              )
+              : "No file chosen"
+          }
+        </Typography>
+      </Stack>
+    );
+  };
+
+  const formik = useFormik({
+    initialValues: getInitialValues(),
+    validationSchema: getValidationSchema(orgTypeId),
+    enableReinitialize: true,
+    onSubmit: async (values) => {
+      const payload = {
+        udyogAadhaarNo: values.UdyogCertificateNumber || apiData?.udyogAadhaarNo || null,
+        udyogAadhaarRegDate: values.DateofRegistration || apiData?.udyogAadhaarRegDate || null,
+        enterpriseTypeId: values.TypeofEnterprise?.id ?? apiData?.enterpriseType ?? null,
+        epfNo: values.epfNumber || apiData?.epfNo || null,
+        epfRegisterAuthority: values.RegisteredAuthority || apiData?.epfRegisterAuthority || null,
+        esicNo: values.esicNumber || apiData?.esicNo || null,
+        esicAuthority: values.esicAuthority || apiData?.esicAuthority || null,
+        turnoverFY1: values.TurnoverFY_2024_25 || apiData?.turnoverFY1 || null,
+        turnoverFY2: values.TurnoverFY_2023_24 || apiData?.turnoverFY2 || null,
+        turnoverFY3: values.TurnoverFY_2022_23 || apiData?.turnoverFY3 || null,
+        turnoverGreater250Cr: values.TurnoverFY_2024_25
+          ? Number(values.TurnoverFY_2024_25) > 250000000
+          : (apiData?.turnoverGreater250Cr ?? null),
+        payroll: values.Payroll || apiData?.payroll || null,
+        pfReturn3Mon: values.PF_Return_Last_3_Months || apiData?.pfReturn3Mon || null,
+        incorporationCertNo: values.IncorporationCertificateNumber || apiData?.incorporationCertNo || null,
+        incorporationRegisteredAddress: values.RegisteredAddress || apiData?.incorporationRegisteredAddress || null,
+        dateOfIncorporation: values.DateofIncorporation || apiData?.dateOfIncorporation || null,
+      };
+
+      const formData = new FormData();
+      Object.entries(uploadedFiles).forEach(([key, fileObj]) => {
+        if (fileObj && fileObj.file) {
+          formData.append(key, fileObj.file);
+        }
+      });
+
+      formData.append(
+        "data",
+        new Blob([JSON.stringify(payload)], { type: "application/json" })
+      );
+
+      try {
+        const response = await UpdateLegaldocuments(formData);
+        showSnackbar(response.message || "Form submitted successfully");
+        markTabAsCompleted();
+        goToNextTab();
+      } catch (error) {
+        showSnackbar(
+          `Error: ${error.response?.data?.message || error.message}`,
+          "error"
+        );
+      }
+    },
+  });
+
+  return (
+    <Box component="form" onSubmit={formik.handleSubmit}>
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Card sx={{ border: "1px solid #ccc", borderRadius: 2 }}>
+            <CardContent>
+              {(orgTypeId === 1 || orgTypeId === 2 || orgTypeId === 3 || orgTypeId === 4) && (
+                <Box sx={{ mt: 4 }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <ContactEmergencyIcon color="primary" sx={{ mr: 1 }} />
+                    Upload GST Certificate
+                  </Typography>
+                  <Divider sx={{ mt: 2 }} />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      {renderUploadSection("gst", "Choose File")}
+                    </Grid>
+                  </Grid>
+                </Box>
+              )}
+              {(orgTypeId === 1 || orgTypeId === 2 || orgTypeId === 3) && (
+                <Box sx={{ mt: 4 }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <ContactEmergencyIcon color="primary" sx={{ mr: 1 }} />
+                    Certificate of Incorporation
+                  </Typography>
+                  <Divider sx={{ mt: 2 }} />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Incorporation Certificate Number"
+                        name="IncorporationCertificateNumber"
+                        value={formik.values.IncorporationCertificateNumber}
+                        onChange={formik.handleChange}
+                        error={
+                          formik.touched.IncorporationCertificateNumber &&
+                          Boolean(formik.errors.IncorporationCertificateNumber)
+                        }
+                        helperText={
+                          formik.touched.IncorporationCertificateNumber &&
+                          formik.errors.IncorporationCertificateNumber
+                        }
+                        fullWidth
+                        size="small"
+                        sx={{ width: "100%", mt: 2 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Registered Address"
+                        name="RegisteredAddress"
+                        value={formik.values.RegisteredAddress}
+                        onChange={formik.handleChange}
+                        error={
+                          formik.touched.RegisteredAddress &&
+                          Boolean(formik.errors.RegisteredAddress)
+                        }
+                        helperText={
+                          formik.touched.RegisteredAddress &&
+                          formik.errors.RegisteredAddress
+                        }
+                        fullWidth
+                        size="small"
+                        sx={{ width: "100%", mt: 2 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DatePicker
+                          size="small"
+                          id="DateofIncorporation"
+                          name="DateofIncorporation"
+                          label="Date of Incorporation (>3 years)"
+                          slotProps={{ textField: { size: "small" } }}
+                          sx={{ width: "100%" }}
+                          inputFormat="DD/MM/YYYY"
+                          value={
+                            formik.values.DateofIncorporation
+                              ? dayjs(formik.values.DateofIncorporation)
+                              : null
+                          }
+                          onChange={(value) => {
+                            formik.setFieldValue(
+                              "DateofIncorporation",
+                              value ? value.format("YYYY-MM-DD") : ""
+                            );
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              margin="0"
+                              size="small"
+                              {...params}
+                              sx={{ width: "100%", mt: 2 }}
+                            />
+                          )}
+                        />
+                      </LocalizationProvider>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      {renderUploadSection("certificateOfIncorporation", "Choose File")}
+                    </Grid>
+                  </Grid>
+                </Box>
+              )}
+              {/* Repeat for all other upload sections, using renderUploadSection for file upload */}
+              {/* Example for Udyog Aadhaar */}
+              {(orgTypeId === 1 || orgTypeId === 2) && (
+                <Box sx={{ mt: 4 }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <ContactEmergencyIcon color="primary" sx={{ mr: 1 }} />
+                    Udyog Aadhaar Details
+                  </Typography>
+                  <Divider sx={{ mt: 2 }} />
+                  <Grid container spacing={2} mb={1}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Udyog Certificate Number"
+                        name="UdyogCertificateNumber"
+                        value={formik.values.UdyogCertificateNumber}
+                        onChange={formik.handleChange}
+                        error={
+                          formik.touched.UdyogCertificateNumber &&
+                          Boolean(formik.errors.UdyogCertificateNumber)
+                        }
+                        helperText={
+                          formik.touched.UdyogCertificateNumber &&
+                          formik.errors.UdyogCertificateNumber
+                        }
+                        fullWidth
+                        size="small"
+                        sx={{ width: "100%", mt: 2 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Autocomplete
+                        size="small"
+                        options={enterpriseType}
+                        getOptionLabel={(option) => option.label}
+                        value={formik.values.TypeofEnterprise}
+                        onChange={(e, newValue) => {
+                          formik.setFieldValue("TypeofEnterprise", newValue);
+                        }}
+                        fullWidth
+                        renderInput={(params) => (
+                          <TextField
+                            sx={{ width: "100%", mt: 2 }}
+                            {...params}
+                            label="Type of Enterprise"
+                            variant="outlined"
+                            error={
+                              formik.touched.TypeofEnterprise &&
+                              Boolean(formik.errors.TypeofEnterprise)
+                            }
+                            helperText={
+                              formik.touched.TypeofEnterprise &&
+                              formik.errors.TypeofEnterprise
+                            }
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DatePicker
+                          size="small"
+                          id="DateofRegistration"
+                          name="DateofRegistration"
+                          label="Date of Registration (>3 years)"
+                          slotProps={{ textField: { size: "small" } }}
+                          sx={{ width: "100%" }}
+                          inputFormat="DD/MM/YYYY"
+                          value={
+                            formik.values.DateofRegistration
+                              ? dayjs(formik.values.DateofRegistration)
+                              : null
+                          }
+                          onChange={(value) => {
+                            formik.setFieldValue(
+                              "DateofRegistration",
+                              value ? value.format("YYYY-MM-DD") : ""
+                            );
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              margin="0"
+                              size="small"
+                              {...params}
+                              sx={{ width: "100%", mt: 2 }}
+                            />
+                          )}
+                        />
+                      </LocalizationProvider>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      {renderUploadSection("udyogAadhaarCertificate", "Choose File")}
+                    </Grid>
+                  </Grid>
+                </Box>
+              )}
+              {/* Continue for all remaining sections as in your original code... */}
+              {/* Final navigation buttons */}
+              <Box sx={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 2,
+                mt: 2,
+              }}>
+                <Button
+                  onClick={goToBackTab}
+                  variant="contained"
+                  startIcon={<SendIcon sx={{ transform: "scaleX(-1)" }} />}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  endIcon={<SendIcon />}
+                >
+                  Save & Next
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+export default LegalDocument;
