@@ -1,3 +1,14 @@
+district: Yup.mixed()
+  .nullable()
+  .when("state", {
+    is: (state) => state?.id === 5,
+    then: (schema) => schema.required("District is required"),
+    otherwise: (schema) => schema.required("District is required"),
+  }),
+otherBlock: Yup.string().nullable(), // Optional
+
+divisionId: isBihar ? values.Division?.id ?? null : null,
+
 
 // Add a new useEffect for non-Bihar states
 useEffect(() => {
