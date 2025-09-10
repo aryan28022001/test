@@ -1,3 +1,104 @@
+
+// Add a new useEffect for non-Bihar states
+useEffect(() => {
+  // Only for non-Bihar states, fetch districts by selected state
+  if (formik.values.state && formik.values.state.id !== 5) {
+    const fetchDistrictsForOtherState = async () => {
+      try {
+        const data = await fetchotherdistrictType(formik.values.state.id);
+        // Assume the service returns an array of {id, label}
+        setDistrictOptions(data.result || []);
+        formik.setFieldValue("district", null); // Reset selection
+      } catch (error) {
+        setDistrictOptions([]);
+      }
+    };
+    fetchDistrictsForOtherState();
+  }
+}, [formik.values.state]);
+
+
+
+{formik?.values?.state?.id === 5 ? (
+  // ...Bihar UI (unchanged)
+) : (
+  <>
+    {/* District Dropdown */}
+    <Grid size={{ xs: 12, sm: 4 }}>
+      <Autocomplete
+        size="small"
+        required
+        options={districtOptions}
+        getOptionLabel={(option) => option.label}
+        value={formik.values.district}
+        onChange={(e, newValue) =>
+          formik.setFieldValue("district", newValue)
+        }
+        fullWidth
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            sx={{ width: "100%", mt: 2 }}
+            label="District"
+            variant="outlined"
+            error={
+              formik.touched.district &&
+              Boolean(formik.errors.district)
+            }
+            helperText={
+              formik.touched.district && formik.errors.district
+            }
+          />
+        )}
+      />
+    </Grid>
+
+    {/* Block TextField (optional) */}
+    <Grid size={{ xs: 12, sm: 4 }}>
+      <TextField
+        size="small"
+        fullWidth
+        id="otherBlock"
+        name="otherBlock"
+        label="Block"
+        sx={{ width: "100%", mt: 2 }}
+        value={formik.values.otherBlock}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.otherBlock &&
+          Boolean(formik.errors.otherBlock)
+        }
+        helperText={
+          formik.touched.otherBlock && formik.errors.otherBlock
+        }
+      />
+    </Grid>
+  </>
+)}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Every time Division changes:
 Clear District and Block values.
 Every time District changes:
