@@ -1,48 +1,118 @@
-The funcnality getting missing in this code is , when coming back to this component the data are being fetched and set to the fields but some of fields like division, district, block pin code are not getting set :
+const [isInitializing, setIsInitializing] = useState(true);
+const loadEmployer_location_ContactDetails = async () => {
+  try {
+    const data = await fetchEmployer_Location_ContactDetail();
+    if (data?.locationDetails && data?.contactDetails) {
+      const loc = data.locationDetails;
+      const contact = data.contactDetails;
+      const state = loc?.state || null;
+      const isBihar = state?.id === 5;
 
-{
-    "locationDetails": {
-        "officeAddress": "test",
-        "state": {
-            "id": 5,
-            "code": "BR",
-            "label": "BIHAR"
-        },
-        "division": {
-            "id": 1,
-            "code": "NULL",
-            "label": "Patna"
-        },
-        "district": {
-            "id": 2,
-            "code": "NULL",
-            "label": "Buxar"
-        },
-        "block": {
-            "id": 606,
-            "code": "97",
-            "label": "Buxar "
-        },
-        "otherDivision": "a",
-        "otherDistrict": "b",
-        "otherBlock": null,
-        "pincode": "898789"
-    },
-    "contactDetails": {
-        "firstName": "Aryan",
-        "middleName": "",
-        "lastName": "raj",
-        "designation": "HR",
-        "mobileNo": "8409931611",
-        "officeContactNo": "7656787656",
-        "email": "hij@gmail.com"
+      let _divisionOptions = [];
+      let selectedDivision = null;
+      let _districtOptions = [];
+      let selectedDistrict = null;
+      let _blockOptions = [];
+      let selectedBlock = null;
+
+      if (isBihar) {
+        const divisionRes = await fetchdivisionType(state.id);
+        _divisionOptions = divisionRes.result || [];
+        selectedDivision = _divisionOptions.find((d) => d.id === loc.division?.id) || null;
+
+        if (selectedDivision) {
+          const districtRes = await fetchdistrictType(selectedDivision.id);
+          _districtOptions = districtRes.result || [];
+          selectedDistrict = _districtOptions.find((d) => d.id === loc.district?.id) || null;
+
+          if (selectedDistrict) {
+            const blockRes = await fetchBlockType(selectedDistrict.id);
+            _blockOptions = blockRes.result || [];
+            selectedBlock = _blockOptions.find((b) => b.id === loc.block?.id) || null;
+          }
+        }
+      } else if (state?.id) {
+        const districtRes = await fetchotherdistrictType(state.id);
+        _districtOptions = districtRes.result || [];
+        selectedDistrict = _districtOptions.find((d) => d.id === loc.district?.id) || null;
+      }
+
+      setDivisionOptions(_divisionOptions);
+      setDistrictOptions(_districtOptions);
+      setBlockOptions(_blockOptions);
+
+      formik.setValues({
+        officeAddress: loc.officeAddress || "",
+        pincode: loc.pincode || "",
+        state,
+        Division: selectedDivision,
+        district: selectedDistrict,
+        Block: selectedBlock,
+        otherBlock: !isBihar ? loc.otherBlock ?? "" : "",
+        firstName: contact.firstName || "",
+        middleName: contact.middleName || "",
+        lastName: contact.lastName || "",
+        designation: contact.designation || "",
+        mobileNo: contact.mobileNo || "",
+        officeContactNo: contact.officeContactNo || "",
+        email: contact.email || "",
+      });
+
+      setIsInitializing(false);
     }
-}
+  } catch (err) {}
+};
 
 
 
 
-This is the code:
+useEffect(() => {
+  if (isInitializing) return;  // ⬅️ Prevent resetting during initial load
+
+  const state = formik.values.state;
+  if (!state) return;
+
+  if (state.id === 5) {
+    const loadDivision = async () => {
+      try {
+        const data = await fetchdivisionType(state.id);
+        setDivisionOptions(data.result || []);
+        setDistrictOptions([]);
+        setBlockOptions([]);
+        formik.setFieldValue("Division", null);
+        formik.setFieldValue("district", null);
+        formik.setFieldValue("Block", null);
+        formik.setFieldValue("pincode", "");
+      } catch (err) {
+        setDivisionOptions([]);
+      }
+    };
+    loadDivision();
+  } else {
+    const loadDistricts = async () => {
+      try {
+        const data = await fetchotherdistrictType(state.id);
+        setDistrictOptions(data.result || []);
+        setBlockOptions([]);
+        setDivisionOptions([]);
+        formik.setFieldValue("Division", null);
+        formik.setFieldValue("district", null);
+        formik.setFieldValue("Block", null);
+        formik.setFieldValue("pincode", "");
+      } catch (err) {
+        setDistrictOptions([]);
+      }
+    };
+    loadDistricts();
+  }
+}, [formik.values.state, isInitializing]);
+
+
+-----------------
+
+
+
+
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -81,6 +151,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   const [divisionOptions, setDivisionOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [blockOptions, setBlockOptions] = useState([]);
+  const [isInitializing, setIsInitializing] = useState(true);
   const { showSnackbar } = useSnackbar();
   const { userInfo } = useSelector((state) => state.auth);
 
@@ -90,36 +161,26 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     return Yup.object({
       officeAddress: Yup.string().required("Office Address is Required"),
       state: Yup.object().nullable().required("State/UT is required"),
-
       Division: isBihar
         ? Yup.mixed().nullable().required("Division is required")
         : Yup.mixed().nullable(),
-
       district: Yup.mixed().nullable().required("District is required"),
-
       Block: isBihar ? Yup.mixed().nullable() : Yup.mixed().nullable(),
-
-      otherBlock: isBihar ? Yup.string().nullable() : Yup.string().nullable(), // Optional
-
+      otherBlock: isBihar ? Yup.string().nullable() : Yup.string().nullable(),
       pincode: Yup.string()
         .matches(/^\d{6}$/, "Pincode must be exactly 6 digits")
         .required("Pincode is Required"),
-
       firstName: Yup.string()
         .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
         .required("First Name is Required"),
-
       middleName: Yup.string().matches(
         /^[A-Za-z]*$/,
         "Only alphabetic characters allowed"
       ),
-
       lastName: Yup.string()
         .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
         .required("Last Name is Required"),
-
       designation: Yup.string().required("Designation is Required"),
-
       officeContactNo: Yup.string()
         .matches(/^\d{10}$/, "Office Contact Number must be exactly 10 digits")
         .required("Office Contact Number is Required"),
@@ -145,7 +206,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     },
     validationSchema: getValidationSchema({ state: null }),
     validate: (values) => {
-      // On every change, update schema dynamically for correct validation
       try {
         getValidationSchema(values).validateSync(values, { abortEarly: false });
         return {};
@@ -198,20 +258,19 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     enableReinitialize: true,
   });
 
-  // Load dropdowns and initial values
+  // Load dropdowns + initial values
   useEffect(() => {
     const loadStateList = async () => {
       try {
         const data = await fetchstateType();
         setStateOptions(data);
-      } catch (err) {}
+      } catch {}
     };
     loadStateList();
-    // initial details
+
     const loadEmployer_location_ContactDetails = async () => {
       try {
         const data = await fetchEmployer_Location_ContactDetail();
-        console.log(data);
         if (data?.locationDetails && data?.contactDetails) {
           const loc = data.locationDetails;
           const contact = data.contactDetails;
@@ -226,20 +285,17 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
           let selectedBlock = null;
 
           if (isBihar) {
-            // Division
             const divisionRes = await fetchdivisionType(state.id);
             _divisionOptions = divisionRes.result || [];
             selectedDivision =
               _divisionOptions.find((d) => d.id === loc.division?.id) || null;
 
-            // District
             if (selectedDivision) {
               const districtRes = await fetchdistrictType(selectedDivision.id);
               _districtOptions = districtRes.result || [];
               selectedDistrict =
                 _districtOptions.find((d) => d.id === loc.district?.id) || null;
 
-              // Block
               if (selectedDistrict) {
                 const blockRes = await fetchBlockType(selectedDistrict.id);
                 _blockOptions = blockRes.result || [];
@@ -274,18 +330,21 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
             officeContactNo: contact.officeContactNo || "",
             email: contact.email || "",
           });
+
+          setIsInitializing(false);
         }
-      } catch (err) {}
+      } catch {}
     };
     loadEmployer_location_ContactDetails();
   }, []);
 
-  // Handle state change (fetch dropdowns)
+  // Fetch divisions/districts on state change (skip during initial load)
   useEffect(() => {
+    if (isInitializing) return;
     const state = formik.values.state;
     if (!state) return;
+
     if (state.id === 5) {
-      // Bihar: fetch divisions
       const loadDivision = async () => {
         try {
           const data = await fetchdivisionType(state.id);
@@ -296,13 +355,12 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
           formik.setFieldValue("district", null);
           formik.setFieldValue("Block", null);
           formik.setFieldValue("pincode", "");
-        } catch (err) {
+        } catch {
           setDivisionOptions([]);
         }
       };
       loadDivision();
     } else {
-      // Other state: fetch districts
       const loadDistricts = async () => {
         try {
           const data = await fetchotherdistrictType(state.id);
@@ -313,16 +371,17 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
           formik.setFieldValue("district", null);
           formik.setFieldValue("Block", null);
           formik.setFieldValue("pincode", "");
-        } catch (err) {
+        } catch {
           setDistrictOptions([]);
         }
       };
       loadDistricts();
     }
-  }, [formik.values.state]);
+  }, [formik.values.state, isInitializing]);
 
-  // Handle Division change
+  // Fetch districts on Division change (skip during initial load)
   useEffect(() => {
+    if (isInitializing) return;
     const division = formik.values.Division;
     const state = formik.values.state;
     if (state?.id !== 5) return;
@@ -335,16 +394,17 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
           formik.setFieldValue("district", null);
           formik.setFieldValue("Block", null);
           formik.setFieldValue("pincode", "");
-        } catch (error) {
+        } catch {
           setDistrictOptions([]);
         }
       };
       loadDistricts();
     }
-  }, [formik.values.Division, formik.values.state]);
+  }, [formik.values.Division, formik.values.state, isInitializing]);
 
-  // Handle District change (Bihar only)
+  // Fetch blocks on District change (skip during initial load)
   useEffect(() => {
+    if (isInitializing) return;
     const state = formik.values.state;
     if (state?.id !== 5) return;
     const district = formik.values.district;
@@ -355,422 +415,37 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
           setBlockOptions(data.result || []);
           formik.setFieldValue("Block", null);
           formik.setFieldValue("pincode", "");
-        } catch (error) {
+        } catch {
           setBlockOptions([]);
         }
       };
       loadBlocks();
     }
-  }, [formik.values.district, formik.values.state]);
+  }, [formik.values.district, formik.values.state, isInitializing]);
 
-  // For non-Bihar, clear Block and pincode when District changes
+  // Clear Block/pincode for non-Bihar on District change (skip during initial load)
   useEffect(() => {
+    if (isInitializing) return;
     const state = formik.values.state;
     if (!state || state.id === 5) return;
     formik.setFieldValue("otherBlock", "");
     formik.setFieldValue("pincode", "");
-  }, [formik.values.district, formik.values.state]);
+  }, [formik.values.district, formik.values.state, isInitializing]);
 
   return (
     <Box component="form" onSubmit={formik.handleSubmit}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ border: "1px solid #ccc", borderRadius: 2 }}>
-            <CardHeader
-              title={
-                <Typography
-                  variant="h7"
-                  sx={{ display: "flex", alignItems: "center" }}
-                >
-                  <PinDropTwoToneIcon sx={{ mr: 1 }} />
-                  Organisation Registered Office Address
-                </Typography>
-              }
-            />
-            <Divider />
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 12 }}>
-                  <TextField
-                    required
-                    size="small"
-                    fullWidth
-                    id="officeAddress"
-                    name="officeAddress"
-                    label="Organisation Registered Office Address"
-                    multiline
-                    rows={4}
-                    value={formik.values.officeAddress}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={
-                      formik.touched.officeAddress &&
-                      Boolean(formik.errors.officeAddress)
-                    }
-                    helperText={
-                      formik.touched.officeAddress &&
-                      formik.errors.officeAddress
-                    }
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Autocomplete
-                    size="small"
-                    required
-                    options={stateOptions}
-                    getOptionLabel={(option) => option.label}
-                    value={formik.values.state}
-                    onChange={(e, newValue) =>
-                      formik.setFieldValue("state", newValue)
-                    }
-                    fullWidth
-                    renderInput={(params) => (
-                      <TextField
-                        sx={{ width: "100%", mt: 2 }}
-                        {...params}
-                        label="State"
-                        variant="outlined"
-                        error={
-                          formik.touched.state && Boolean(formik.errors.state)
-                        }
-                        helperText={formik.touched.state && formik.errors.state}
-                      />
-                    )}
-                  />
-                </Grid>
-                {formik?.values?.state?.id === 5 ? (
-                  <>
-                    {/* Bihar UI */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={divisionOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.Division}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("Division", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="Division"
-                            variant="outlined"
-                            error={
-                              formik.touched.Division &&
-                              Boolean(formik.errors.Division)
-                            }
-                            helperText={
-                              formik.touched.Division && formik.errors.Division
-                            }
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={districtOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.district}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("district", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="District"
-                            variant="outlined"
-                            error={
-                              formik.touched.district &&
-                              Boolean(formik.errors.district)
-                            }
-                            helperText={
-                              formik.touched.district && formik.errors.district
-                            }
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        size="small"
-                        options={blockOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.Block}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("Block", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="Block"
-                            variant="outlined"
-                            error={
-                              formik.touched.Block &&
-                              Boolean(formik.errors.Block)
-                            }
-                            helperText={
-                              formik.touched.Block && formik.errors.Block
-                            }
-                          />
-                        )}
-                      />
-                    </Grid>
-                  </>
-                ) : (
-                  <>
-                    {/* Other State UI */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={districtOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.district}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("district", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="District"
-                            variant="outlined"
-                            error={
-                              formik.touched.district &&
-                              Boolean(formik.errors.district)
-                            }
-                            helperText={
-                              formik.touched.district && formik.errors.district
-                            }
-                          />
-                        )}
-                      />
-                    </Grid>
-                    {/* Block TextField (optional) */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        id="otherBlock"
-                        name="otherBlock"
-                        label="Block"
-                        sx={{ width: "100%", mt: 2 }}
-                        value={formik.values.otherBlock}
-                        onChange={formik.handleChange}
-                        error={
-                          formik.touched.otherBlock &&
-                          Boolean(formik.errors.otherBlock)
-                        }
-                        helperText={
-                          formik.touched.otherBlock && formik.errors.otherBlock
-                        }
-                      />
-                    </Grid>
-                  </>
-                )}
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField
-                    required
-                    label="Pincode"
-                    name="pincode"
-                    value={formik.values.pincode}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={
-                      formik.touched.pincode && Boolean(formik.errors.pincode)
-                    }
-                    helperText={formik.touched.pincode && formik.errors.pincode}
-                    fullWidth
-                    size="small"
-                    sx={{ width: "100%", mt: 2 }}
-                  />
-                </Grid>
-              </Grid>
-              <Box sx={{ mt: 8 }}>
-                <Typography
-                  variant="h7"
-                  sx={{ display: "flex", alignItems: "center" }}
-                >
-                  <ContactEmergencyIcon sx={{ mr: 1 }} />
-                  Contact Information
-                </Typography>
-                <Divider sx={{ mt: 2 }} />
-                <Grid container spacing={2} mb={1}>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="firstName"
-                      name="firstName"
-                      label="First Name"
-                      value={formik.values.firstName}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.firstName &&
-                        Boolean(formik.errors.firstName)
-                      }
-                      helperText={
-                        formik.touched.firstName && formik.errors.firstName
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      id="middleName"
-                      name="middleName"
-                      label="Middle Name"
-                      value={formik.values.middleName}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.middleName &&
-                        Boolean(formik.errors.middleName)
-                      }
-                      helperText={
-                        formik.touched.middleName && formik.errors.middleName
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="lastName"
-                      name="lastName"
-                      label="Last Name"
-                      value={formik.values.lastName}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.lastName &&
-                        Boolean(formik.errors.lastName)
-                      }
-                      helperText={
-                        formik.touched.lastName && formik.errors.lastName
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="designation"
-                      name="designation"
-                      label="Designation"
-                      value={formik.values.designation}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.designation &&
-                        Boolean(formik.errors.designation)
-                      }
-                      helperText={
-                        formik.touched.designation && formik.errors.designation
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      id="mobileNo"
-                      name="mobileNo"
-                      label="Mobile Number"
-                      value={formik.values.mobileNo}
-                      onChange={formik.handleChange}
-                      InputProps={{
-                        readOnly: true,
-                      }}
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      required
-                      size="small"
-                      fullWidth
-                      id="officeContactNo"
-                      name="officeContactNo"
-                      label="Office Contact Number"
-                      value={formik.values.officeContactNo}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      error={
-                        formik.touched.officeContactNo &&
-                        Boolean(formik.errors.officeContactNo)
-                      }
-                      helperText={
-                        formik.touched.officeContactNo &&
-                        formik.errors.officeContactNo
-                      }
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      id="email"
-                      name="email"
-                      label="Email Id"
-                      value={formik.values.email}
-                      onChange={formik.handleChange}
-                      InputProps={{
-                        readOnly: true,
-                      }}
-                      sx={{ width: "100%", mt: 2 }}
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-              <Box sx={{ textAlign: "center", mt: 2 }}>
-                {userInfo?.userDetails?.isAllowedToSubmit && (
-                  <Box
-                    sx={{ display: "flex", justifyContent: "center", gap: 2 }}
-                  >
-                    <Button
-                      onClick={() => goToBackTab()}
-                      variant="contained"
-                      startIcon={<SendIcon sx={{ transform: "scaleX(-1)" }} />}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      endIcon={<SendIcon />}
-                    >
-                      Save & Next
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {/* ---- UI remains the same ---- */}
+      {/* You keep all your JSX exactly as before */}
     </Box>
   );
 };
 
 export default LocationContact;
+
+
+
+
+
+
+
+
