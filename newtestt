@@ -1,451 +1,60 @@
-const [isInitializing, setIsInitializing] = useState(true);
-const loadEmployer_location_ContactDetails = async () => {
-  try {
-    const data = await fetchEmployer_Location_ContactDetail();
-    if (data?.locationDetails && data?.contactDetails) {
-      const loc = data.locationDetails;
-      const contact = data.contactDetails;
-      const state = loc?.state || null;
-      const isBihar = state?.id === 5;
+const [initialLocationContact, setInitialLocationContact] = useState(null);
+useEffect(() => {
+  // Fetch initial data
+  fetchEmployer_Location_ContactDetail().then(data => {
+    setInitialLocationContact(data);
+    // Set state value in Formik
+    formik.setFieldValue("state", data.locationDetails.state);
+  });
+}, []);
 
-      let _divisionOptions = [];
-      let selectedDivision = null;
-      let _districtOptions = [];
-      let selectedDistrict = null;
-      let _blockOptions = [];
-      let selectedBlock = null;
 
-      if (isBihar) {
-        const divisionRes = await fetchdivisionType(state.id);
-        _divisionOptions = divisionRes.result || [];
-        selectedDivision = _divisionOptions.find((d) => d.id === loc.division?.id) || null;
 
-        if (selectedDivision) {
-          const districtRes = await fetchdistrictType(selectedDivision.id);
-          _districtOptions = districtRes.result || [];
-          selectedDistrict = _districtOptions.find((d) => d.id === loc.district?.id) || null;
-
-          if (selectedDistrict) {
-            const blockRes = await fetchBlockType(selectedDistrict.id);
-            _blockOptions = blockRes.result || [];
-            selectedBlock = _blockOptions.find((b) => b.id === loc.block?.id) || null;
-          }
-        }
-      } else if (state?.id) {
-        const districtRes = await fetchotherdistrictType(state.id);
-        _districtOptions = districtRes.result || [];
-        selectedDistrict = _districtOptions.find((d) => d.id === loc.district?.id) || null;
+useEffect(() => {
+  if (!formik.values.state) return;
+  if (formik.values.state.id === 5) {
+    fetchdivisionType(formik.values.state.id).then(res => {
+      setDivisionOptions(res.result || []);
+      // Now, set division value in Formik
+      if (initialLocationContact) {
+        const selectedDivision = res.result.find(d => d.id === initialLocationContact.locationDetails.division?.id) || null;
+        formik.setFieldValue("Division", selectedDivision);
       }
+    });
+  } else {
+    fetchotherdistrictType(formik.values.state.id).then(res => {
+      setDistrictOptions(res.result || []);
+      if (initialLocationContact) {
+        const selectedDistrict = res.result.find(d => d.id === initialLocationContact.locationDetails.district?.id) || null;
+        formik.setFieldValue("district", selectedDistrict);
+      }
+    });
+  }
+}, [formik.values.state, initialLocationContact]);
 
-      setDivisionOptions(_divisionOptions);
-      setDistrictOptions(_districtOptions);
-      setBlockOptions(_blockOptions);
 
-      formik.setValues({
-        officeAddress: loc.officeAddress || "",
-        pincode: loc.pincode || "",
-        state,
-        Division: selectedDivision,
-        district: selectedDistrict,
-        Block: selectedBlock,
-        otherBlock: !isBihar ? loc.otherBlock ?? "" : "",
-        firstName: contact.firstName || "",
-        middleName: contact.middleName || "",
-        lastName: contact.lastName || "",
-        designation: contact.designation || "",
-        mobileNo: contact.mobileNo || "",
-        officeContactNo: contact.officeContactNo || "",
-        email: contact.email || "",
-      });
-
-      setIsInitializing(false);
+useEffect(() => {
+  if (formik.values.state?.id !== 5 || !formik.values.Division) return;
+  fetchdistrictType(formik.values.Division.id).then(res => {
+    setDistrictOptions(res.result || []);
+    if (initialLocationContact) {
+      const selectedDistrict = res.result.find(d => d.id === initialLocationContact.locationDetails.district?.id) || null;
+      formik.setFieldValue("district", selectedDistrict);
     }
-  } catch (err) {}
-};
+  });
+}, [formik.values.Division, initialLocationContact]);
 
 
 
 
 useEffect(() => {
-  if (isInitializing) return;  // ⬅️ Prevent resetting during initial load
-
-  const state = formik.values.state;
-  if (!state) return;
-
-  if (state.id === 5) {
-    const loadDivision = async () => {
-      try {
-        const data = await fetchdivisionType(state.id);
-        setDivisionOptions(data.result || []);
-        setDistrictOptions([]);
-        setBlockOptions([]);
-        formik.setFieldValue("Division", null);
-        formik.setFieldValue("district", null);
-        formik.setFieldValue("Block", null);
-        formik.setFieldValue("pincode", "");
-      } catch (err) {
-        setDivisionOptions([]);
-      }
-    };
-    loadDivision();
-  } else {
-    const loadDistricts = async () => {
-      try {
-        const data = await fetchotherdistrictType(state.id);
-        setDistrictOptions(data.result || []);
-        setBlockOptions([]);
-        setDivisionOptions([]);
-        formik.setFieldValue("Division", null);
-        formik.setFieldValue("district", null);
-        formik.setFieldValue("Block", null);
-        formik.setFieldValue("pincode", "");
-      } catch (err) {
-        setDistrictOptions([]);
-      }
-    };
-    loadDistricts();
-  }
-}, [formik.values.state, isInitializing]);
-
-
------------------
-
-
-
-
-import React, { useState, useEffect } from "react";
-import {
-  Box,
-  Grid,
-  Card,
-  CardHeader,
-  CardContent,
-  Divider,
-  TextField,
-  Typography,
-  Autocomplete,
-  Button,
-} from "@mui/material";
-import PinDropTwoToneIcon from "@mui/icons-material/PinDropTwoTone";
-import ContactEmergencyIcon from "@mui/icons-material/ContactEmergency";
-import { useFormik } from "formik";
-import * as Yup from "yup";
-import {
-  fetchdivisionsType,
-  fetchdistrictType,
-  fetchBlockType,
-  fetchstateType,
-  fetchdivisionType,
-  fetchotherdistrictType,
-} from "../../../services/dropdownService";
-import {
-  fetchEmployer_Location_ContactDetail,
-  update_Employer_Location_ContactDetail,
-} from "../../../services/employerlocationandContact";
-import { useSnackbar } from "../../../components/Snackbar";
-import SendIcon from "@mui/icons-material/Send";
-import { useSelector } from "react-redux";
-
-const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
-  const [stateOptions, setStateOptions] = useState([]);
-  const [divisionOptions, setDivisionOptions] = useState([]);
-  const [districtOptions, setDistrictOptions] = useState([]);
-  const [blockOptions, setBlockOptions] = useState([]);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const { showSnackbar } = useSnackbar();
-  const { userInfo } = useSelector((state) => state.auth);
-
-  // Dynamic validation schema
-  const getValidationSchema = (values) => {
-    const isBihar = values.state?.id === 5;
-    return Yup.object({
-      officeAddress: Yup.string().required("Office Address is Required"),
-      state: Yup.object().nullable().required("State/UT is required"),
-      Division: isBihar
-        ? Yup.mixed().nullable().required("Division is required")
-        : Yup.mixed().nullable(),
-      district: Yup.mixed().nullable().required("District is required"),
-      Block: isBihar ? Yup.mixed().nullable() : Yup.mixed().nullable(),
-      otherBlock: isBihar ? Yup.string().nullable() : Yup.string().nullable(),
-      pincode: Yup.string()
-        .matches(/^\d{6}$/, "Pincode must be exactly 6 digits")
-        .required("Pincode is Required"),
-      firstName: Yup.string()
-        .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
-        .required("First Name is Required"),
-      middleName: Yup.string().matches(
-        /^[A-Za-z]*$/,
-        "Only alphabetic characters allowed"
-      ),
-      lastName: Yup.string()
-        .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
-        .required("Last Name is Required"),
-      designation: Yup.string().required("Designation is Required"),
-      officeContactNo: Yup.string()
-        .matches(/^\d{10}$/, "Office Contact Number must be exactly 10 digits")
-        .required("Office Contact Number is Required"),
-    });
-  };
-
-  const formik = useFormik({
-    initialValues: {
-      officeAddress: "",
-      pincode: "",
-      state: null,
-      Division: null,
-      district: null,
-      Block: null,
-      otherBlock: "",
-      firstName: "",
-      middleName: "",
-      lastName: "",
-      designation: "",
-      mobileNo: "",
-      officeContactNo: "",
-      email: "",
-    },
-    validationSchema: getValidationSchema({ state: null }),
-    validate: (values) => {
-      try {
-        getValidationSchema(values).validateSync(values, { abortEarly: false });
-        return {};
-      } catch (err) {
-        const errors = {};
-        if (err.inner) {
-          err.inner.forEach((e) => {
-            if (!errors[e.path]) errors[e.path] = e.message;
-          });
-        }
-        return errors;
-      }
-    },
-    onSubmit: async (values) => {
-      const isBihar = values.state?.id === 5;
-      const payload = {
-        locationDetails: {
-          officeAddress: values.officeAddress,
-          stateId: values.state?.id ?? null,
-          divisionId: isBihar ? values.Division?.id ?? null : null,
-          districtId: values.district?.id ?? null,
-          blockId: isBihar ? values.Block?.id ?? null : null,
-          otherBlock: !isBihar ? values.otherBlock : null,
-          pincode: values.pincode,
-        },
-        contactDetails: {
-          firstName: values.firstName,
-          middleName: values.middleName,
-          lastName: values.lastName,
-          designation: values.designation,
-          mobileNo: values.mobileNo,
-          officeContactNo: values.officeContactNo,
-          email: values.email,
-        },
-      };
-      try {
-        const response = await update_Employer_Location_ContactDetail(payload);
-        showSnackbar(response.message || "Form submitted successfully");
-        markTabAsCompleted();
-        goToNextTab();
-      } catch (error) {
-        showSnackbar(
-          `Error: ${error.response?.data?.message || error.message}`,
-          "error"
-        );
-      }
-    },
-    validateOnChange: true,
-    validateOnBlur: true,
-    enableReinitialize: true,
+  if (formik.values.state?.id !== 5 || !formik.values.district) return;
+  fetchBlockType(formik.values.district.id).then(res => {
+    setBlockOptions(res.result || []);
+    if (initialLocationContact) {
+      const selectedBlock = res.result.find(b => b.id === initialLocationContact.locationDetails.block?.id) || null;
+      formik.setFieldValue("Block", selectedBlock);
+      formik.setFieldValue("pincode", initialLocationContact.locationDetails.pincode || "");
+    }
   });
-
-  // Load dropdowns + initial values
-  useEffect(() => {
-    const loadStateList = async () => {
-      try {
-        const data = await fetchstateType();
-        setStateOptions(data);
-      } catch {}
-    };
-    loadStateList();
-
-    const loadEmployer_location_ContactDetails = async () => {
-      try {
-        const data = await fetchEmployer_Location_ContactDetail();
-        if (data?.locationDetails && data?.contactDetails) {
-          const loc = data.locationDetails;
-          const contact = data.contactDetails;
-          const state = loc?.state || null;
-          const isBihar = state?.id === 5;
-
-          let _divisionOptions = [];
-          let selectedDivision = null;
-          let _districtOptions = [];
-          let selectedDistrict = null;
-          let _blockOptions = [];
-          let selectedBlock = null;
-
-          if (isBihar) {
-            const divisionRes = await fetchdivisionType(state.id);
-            _divisionOptions = divisionRes.result || [];
-            selectedDivision =
-              _divisionOptions.find((d) => d.id === loc.division?.id) || null;
-
-            if (selectedDivision) {
-              const districtRes = await fetchdistrictType(selectedDivision.id);
-              _districtOptions = districtRes.result || [];
-              selectedDistrict =
-                _districtOptions.find((d) => d.id === loc.district?.id) || null;
-
-              if (selectedDistrict) {
-                const blockRes = await fetchBlockType(selectedDistrict.id);
-                _blockOptions = blockRes.result || [];
-                selectedBlock =
-                  _blockOptions.find((b) => b.id === loc.block?.id) || null;
-              }
-            }
-          } else if (state?.id) {
-            const districtRes = await fetchotherdistrictType(state.id);
-            _districtOptions = districtRes.result || [];
-            selectedDistrict =
-              _districtOptions.find((d) => d.id === loc.district?.id) || null;
-          }
-
-          setDivisionOptions(_divisionOptions);
-          setDistrictOptions(_districtOptions);
-          setBlockOptions(_blockOptions);
-
-          formik.setValues({
-            officeAddress: loc.officeAddress || "",
-            pincode: loc.pincode || "",
-            state,
-            Division: selectedDivision,
-            district: selectedDistrict,
-            Block: selectedBlock,
-            otherBlock: !isBihar ? loc.otherBlock ?? "" : "",
-            firstName: contact.firstName || "",
-            middleName: contact.middleName || "",
-            lastName: contact.lastName || "",
-            designation: contact.designation || "",
-            mobileNo: contact.mobileNo || "",
-            officeContactNo: contact.officeContactNo || "",
-            email: contact.email || "",
-          });
-
-          setIsInitializing(false);
-        }
-      } catch {}
-    };
-    loadEmployer_location_ContactDetails();
-  }, []);
-
-  // Fetch divisions/districts on state change (skip during initial load)
-  useEffect(() => {
-    if (isInitializing) return;
-    const state = formik.values.state;
-    if (!state) return;
-
-    if (state.id === 5) {
-      const loadDivision = async () => {
-        try {
-          const data = await fetchdivisionType(state.id);
-          setDivisionOptions(data.result || []);
-          setDistrictOptions([]);
-          setBlockOptions([]);
-          formik.setFieldValue("Division", null);
-          formik.setFieldValue("district", null);
-          formik.setFieldValue("Block", null);
-          formik.setFieldValue("pincode", "");
-        } catch {
-          setDivisionOptions([]);
-        }
-      };
-      loadDivision();
-    } else {
-      const loadDistricts = async () => {
-        try {
-          const data = await fetchotherdistrictType(state.id);
-          setDistrictOptions(data.result || []);
-          setBlockOptions([]);
-          setDivisionOptions([]);
-          formik.setFieldValue("Division", null);
-          formik.setFieldValue("district", null);
-          formik.setFieldValue("Block", null);
-          formik.setFieldValue("pincode", "");
-        } catch {
-          setDistrictOptions([]);
-        }
-      };
-      loadDistricts();
-    }
-  }, [formik.values.state, isInitializing]);
-
-  // Fetch districts on Division change (skip during initial load)
-  useEffect(() => {
-    if (isInitializing) return;
-    const division = formik.values.Division;
-    const state = formik.values.state;
-    if (state?.id !== 5) return;
-    if (division) {
-      const loadDistricts = async () => {
-        try {
-          const data = await fetchdistrictType(division.id);
-          setDistrictOptions(data.result || []);
-          setBlockOptions([]);
-          formik.setFieldValue("district", null);
-          formik.setFieldValue("Block", null);
-          formik.setFieldValue("pincode", "");
-        } catch {
-          setDistrictOptions([]);
-        }
-      };
-      loadDistricts();
-    }
-  }, [formik.values.Division, formik.values.state, isInitializing]);
-
-  // Fetch blocks on District change (skip during initial load)
-  useEffect(() => {
-    if (isInitializing) return;
-    const state = formik.values.state;
-    if (state?.id !== 5) return;
-    const district = formik.values.district;
-    if (district) {
-      const loadBlocks = async () => {
-        try {
-          const data = await fetchBlockType(district.id);
-          setBlockOptions(data.result || []);
-          formik.setFieldValue("Block", null);
-          formik.setFieldValue("pincode", "");
-        } catch {
-          setBlockOptions([]);
-        }
-      };
-      loadBlocks();
-    }
-  }, [formik.values.district, formik.values.state, isInitializing]);
-
-  // Clear Block/pincode for non-Bihar on District change (skip during initial load)
-  useEffect(() => {
-    if (isInitializing) return;
-    const state = formik.values.state;
-    if (!state || state.id === 5) return;
-    formik.setFieldValue("otherBlock", "");
-    formik.setFieldValue("pincode", "");
-  }, [formik.values.district, formik.values.state, isInitializing]);
-
-  return (
-    <Box component="form" onSubmit={formik.handleSubmit}>
-      {/* ---- UI remains the same ---- */}
-      {/* You keep all your JSX exactly as before */}
-    </Box>
-  );
-};
-
-export default LocationContact;
-
-
-
-
-
-
-
-
+}, [formik.values.district, initialLocationContact]);
