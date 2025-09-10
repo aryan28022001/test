@@ -1,99 +1,725 @@
-{
-    "status": true,
-    "message": "Data fetched successfully",
-    "code": 200,
-    "result": {
-        "incorporationCertNo": null,
-        "incorporationRegisteredAddress": null,
-        "dateOfIncorporation": null,
-        "udyogAadhaarNo": null,
-        "udyogAadhaarRegDate": null,
-        "enterpriseType": null,
-        "epfNo": null,
-        "epfRegisterAuthority": null,
-        "esicNo": null,
-        "esicAuthority": null,
-        "turnoverFY1": null,
-        "turnoverFY2": null,
-        "turnoverFY3": null,
-        "turnoverGreater250Cr": false,
-        "payroll": null,
-        "pfReturn3Mon": null,
-        "documents": []
-    }
-}
-----------------------------------------------------------------------------------------
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Box,
+  Grid,
+  Card,
+  CardHeader,
+  CardContent,
+  Divider,
+  TextField,
+  Typography,
+  Autocomplete,
+  Button,
+} from "@mui/material";
+import PinDropTwoToneIcon from "@mui/icons-material/PinDropTwoTone";
+import ContactEmergencyIcon from "@mui/icons-material/ContactEmergency";
+import { useFormik } from "formik";
+import * as Yup from "yup";
+import {
+  fetchdivisionsType,
+  fetchdistrictType,
+  fetchBlockType,
+  fetchstateType,
+  fetchdivisionType,
+  fetchotherdistrictType,
+} from "../../../services/dropdownService";
+import {
+  fetchEmployer_Location_ContactDetail,
+  update_Employer_Location_ContactDetail,
+} from "../../../services/employerlocationandContact";
+import { useSnackbar } from "../../../components/Snackbar";
+import SendIcon from "@mui/icons-material/Send";
+import { useSelector } from "react-redux";
 
-{
-    "status": true,
-    "message": "Data fetched successfully",
-    "code": 200,
-    "result": {
-        "incorporationCertNo": "a",
-        "incorporationRegisteredAddress": "a",
-        "dateOfIncorporation": "2014-09-08",
-        "udyogAadhaarNo": null,
-        "udyogAadhaarRegDate": null,
-        "enterpriseType": null,
-        "epfNo": "22",
-        "epfRegisterAuthority": "s",
-        "esicNo": null,
-        "esicAuthority": null,
-        "turnoverFY1": "33",
-        "turnoverFY2": "77",
-        "turnoverFY3": "798",
-        "turnoverGreater250Cr": false,
-        "payroll": 45,
-        "pfReturn3Mon": 5,
-        "documents": [
-            {
-                "docTypeId": 4,
-                "docTypeName": "Certificate of Incorporation",
-                "filename": "13_Certificate_of_Incorporation_1be96657-2642-4bda-b123-ab5f570fd617.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            },
-            {
-                "docTypeId": 12,
-                "docTypeName": "GST",
-                "filename": "13_GST_eb77eec1-b483-4b40-a183-fee092a73da5.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            },
-            {
-                "docTypeId": 2,
-                "docTypeName": "EPF Certificate",
-                "filename": "13_EPF_Certificate_0369f34e-fc96-4175-a307-d0f35db50427.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            },
-            {
-                "docTypeId": 14,
-                "docTypeName": "Turnover Documents FY2",
-                "filename": "13_Turnover_Documents_FY2_d7c33a3a-4fde-4bc9-a83d-c207c0e1b8b8.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            },
-            {
-                "docTypeId": 7,
-                "docTypeName": "Payroll Documents",
-                "filename": "13_Payroll_Documents_4423d2df-ea30-478e-b0b6-190c4cfa2a0b.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            },
-            {
-                "docTypeId": 8,
-                "docTypeName": "PF Return Documents",
-                "filename": "13_PF_Return_Documents_fd00c824-9f3d-4204-9e75-2e46cc10cfbd.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            },
-            {
-                "docTypeId": 6,
-                "docTypeName": "Turnover Documents FY1",
-                "filename": "13_Turnover_Documents_FY1_acd9d2e7-8cf6-42dc-963e-7e281cfc4030.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            },
-            {
-                "docTypeId": 15,
-                "docTypeName": "Turnover Documents FY3",
-                "filename": "13_Turnover_Documents_FY3_584c985e-47c2-4c41-855e-cebbac7277c2.pdf",
-                "originalFilename": "template-1754304275906.pdf"
-            }
-        ]
+const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
+  const [stateOptions, setStateOptions] = useState([]);
+  const [divisionOptions, setDivisionOptions] = useState([]);
+  const [districtOptions, setDistrictOptions] = useState([]);
+  const [blockOptions, setBlockOptions] = useState([]);
+  const { showSnackbar } = useSnackbar();
+  const { userInfo } = useSelector((state) => state.auth);
+
+  // Store initial data for staged option setting
+  const initialDataRef = useRef(null);
+
+  // Dynamic validation schema
+  const getValidationSchema = (values) => {
+    const isBihar = values.state?.id === 5;
+    return Yup.object({
+      officeAddress: Yup.string().required("Office Address is Required"),
+      state: Yup.object().nullable().required("State/UT is required"),
+
+      Division: isBihar
+        ? Yup.mixed().nullable().required("Division is required")
+        : Yup.mixed().nullable(),
+
+      district: Yup.mixed().nullable().required("District is required"),
+
+      Block: isBihar ? Yup.mixed().nullable() : Yup.mixed().nullable(),
+
+      otherBlock: isBihar ? Yup.string().nullable() : Yup.string().nullable(), // Optional
+
+      pincode: Yup.string()
+        .matches(/^\d{6}$/, "Pincode must be exactly 6 digits")
+        .required("Pincode is Required"),
+
+      firstName: Yup.string()
+        .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
+        .required("First Name is Required"),
+
+      middleName: Yup.string().matches(
+        /^[A-Za-z]*$/,
+        "Only alphabetic characters allowed"
+      ),
+
+      lastName: Yup.string()
+        .matches(/^[A-Za-z]+$/, "Only alphabetic characters allowed")
+        .required("Last Name is Required"),
+
+      designation: Yup.string().required("Designation is Required"),
+
+      officeContactNo: Yup.string()
+        .matches(/^\d{10}$/, "Office Contact Number must be exactly 10 digits")
+        .required("Office Contact Number is Required"),
+    });
+  };
+
+  const formik = useFormik({
+    initialValues: {
+      officeAddress: "",
+      pincode: "",
+      state: null,
+      Division: null,
+      district: null,
+      Block: null,
+      otherBlock: "",
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      designation: "",
+      mobileNo: "",
+      officeContactNo: "",
+      email: "",
+    },
+    validationSchema: getValidationSchema({ state: null }),
+    validate: (values) => {
+      try {
+        getValidationSchema(values).validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err) {
+        const errors = {};
+        if (err.inner) {
+          err.inner.forEach((e) => {
+            if (!errors[e.path]) errors[e.path] = e.message;
+          });
+        }
+        return errors;
+      }
+    },
+    onSubmit: async (values) => {
+      const isBihar = values.state?.id === 5;
+      const payload = {
+        locationDetails: {
+          officeAddress: values.officeAddress,
+          stateId: values.state?.id ?? null,
+          divisionId: isBihar ? values.Division?.id ?? null : null,
+          districtId: values.district?.id ?? null,
+          blockId: isBihar ? values.Block?.id ?? null : null,
+          otherBlock: !isBihar ? values.otherBlock : null,
+          pincode: values.pincode,
+        },
+        contactDetails: {
+          firstName: values.firstName,
+          middleName: values.middleName,
+          lastName: values.lastName,
+          designation: values.designation,
+          mobileNo: values.mobileNo,
+          officeContactNo: values.officeContactNo,
+          email: values.email,
+        },
+      };
+      try {
+        const response = await update_Employer_Location_ContactDetail(payload);
+        showSnackbar(response.message || "Form submitted successfully");
+        markTabAsCompleted();
+        goToNextTab();
+      } catch (error) {
+        showSnackbar(
+          `Error: ${error.response?.data?.message || error.message}`,
+          "error"
+        );
+      }
+    },
+    validateOnChange: true,
+    validateOnBlur: true,
+    enableReinitialize: true,
+  });
+
+  // Load state list and initial details
+  useEffect(() => {
+    const loadStateList = async () => {
+      try {
+        const data = await fetchstateType();
+        setStateOptions(data);
+      } catch (err) {}
+    };
+    loadStateList();
+
+    // initial details
+    const loadEmployer_location_ContactDetails = async () => {
+      try {
+        const data = await fetchEmployer_Location_ContactDetail();
+        initialDataRef.current = data; // store for staged population
+        if (data?.locationDetails && data?.contactDetails) {
+          const loc = data.locationDetails;
+          const contact = data.contactDetails;
+          const state = loc?.state || null;
+          formik.setValues({
+            officeAddress: loc.officeAddress || "",
+            pincode: loc.pincode || "",
+            state,
+            Division: null,
+            district: null,
+            Block: null,
+            otherBlock: state?.id !== 5 ? loc.otherBlock ?? "" : "",
+            firstName: contact.firstName || "",
+            middleName: contact.middleName || "",
+            lastName: contact.lastName || "",
+            designation: contact.designation || "",
+            mobileNo: contact.mobileNo || "",
+            officeContactNo: contact.officeContactNo || "",
+            email: contact.email || "",
+          });
+        }
+      } catch (err) {}
+    };
+    loadEmployer_location_ContactDetails();
+  }, []);
+
+  // Handle state change (fetch division/district)
+  useEffect(() => {
+    const state = formik.values.state;
+    if (!state) return;
+
+    if (state.id === 5) {
+      // Bihar: fetch divisions
+      const loadDivision = async () => {
+        try {
+          const data = await fetchdivisionType(state.id);
+          setDivisionOptions(data.result || []);
+          setDistrictOptions([]);
+          setBlockOptions([]);
+          formik.setFieldValue("Division", null);
+          formik.setFieldValue("district", null);
+          formik.setFieldValue("Block", null);
+          // After options loaded, set value if available in initialData
+          if (initialDataRef.current?.locationDetails?.division) {
+            const selectedDivision =
+              (data.result || []).find(
+                (d) => d.id === initialDataRef.current.locationDetails.division?.id
+              ) || null;
+            formik.setFieldValue("Division", selectedDivision);
+          }
+        } catch (err) {
+          setDivisionOptions([]);
+        }
+      };
+      loadDivision();
+    } else {
+      // Other state: fetch districts
+      const loadDistricts = async () => {
+        try {
+          const data = await fetchotherdistrictType(state.id);
+          setDistrictOptions(data.result || []);
+          setBlockOptions([]);
+          setDivisionOptions([]);
+          formik.setFieldValue("Division", null);
+          formik.setFieldValue("district", null);
+          formik.setFieldValue("Block", null);
+          // After options loaded, set value if available in initialData
+          if (initialDataRef.current?.locationDetails?.district) {
+            const selectedDistrict =
+              (data.result || []).find(
+                (d) => d.id === initialDataRef.current.locationDetails.district?.id
+              ) || null;
+            formik.setFieldValue("district", selectedDistrict);
+          }
+        } catch (err) {
+          setDistrictOptions([]);
+        }
+      };
+      loadDistricts();
     }
-}
+  }, [formik.values.state]);
+
+  // Handle Division change
+  useEffect(() => {
+    const division = formik.values.Division;
+    const state = formik.values.state;
+    if (state?.id !== 5) return;
+    if (division) {
+      const loadDistricts = async () => {
+        try {
+          const data = await fetchdistrictType(division.id);
+          setDistrictOptions(data.result || []);
+          setBlockOptions([]);
+          formik.setFieldValue("district", null);
+          formik.setFieldValue("Block", null);
+          // After options loaded, set value if available in initialData
+          if (initialDataRef.current?.locationDetails?.district) {
+            const selectedDistrict =
+              (data.result || []).find(
+                (d) => d.id === initialDataRef.current.locationDetails.district?.id
+              ) || null;
+            formik.setFieldValue("district", selectedDistrict);
+          }
+        } catch (error) {
+          setDistrictOptions([]);
+        }
+      };
+      loadDistricts();
+    }
+  }, [formik.values.Division, formik.values.state]);
+
+  // Handle District change (Bihar only)
+  useEffect(() => {
+    const state = formik.values.state;
+    if (state?.id !== 5) return;
+    const district = formik.values.district;
+    if (district) {
+      const loadBlocks = async () => {
+        try {
+          const data = await fetchBlockType(district.id);
+          setBlockOptions(data.result || []);
+          formik.setFieldValue("Block", null);
+          // After options loaded, set value if available in initialData
+          if (initialDataRef.current?.locationDetails?.block) {
+            const selectedBlock =
+              (data.result || []).find(
+                (b) => b.id === initialDataRef.current.locationDetails.block?.id
+              ) || null;
+            formik.setFieldValue("Block", selectedBlock);
+          }
+          // Set pincode if available
+          if (initialDataRef.current?.locationDetails?.pincode) {
+            formik.setFieldValue("pincode", initialDataRef.current.locationDetails.pincode);
+          }
+        } catch (error) {
+          setBlockOptions([]);
+        }
+      };
+      loadBlocks();
+    }
+  }, [formik.values.district, formik.values.state]);
+
+  // For non-Bihar, clear Block and pincode when District changes
+  useEffect(() => {
+    const state = formik.values.state;
+    if (!state || state.id === 5) return;
+    formik.setFieldValue("otherBlock", initialDataRef.current?.locationDetails?.otherBlock ?? "");
+    formik.setFieldValue("pincode", initialDataRef.current?.locationDetails?.pincode ?? "");
+  }, [formik.values.district, formik.values.state]);
+
+  return (
+    <Box component="form" onSubmit={formik.handleSubmit}>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ border: "1px solid #ccc", borderRadius: 2 }}>
+            <CardHeader
+              title={
+                <Typography
+                  variant="h7"
+                  sx={{ display: "flex", alignItems: "center" }}
+                >
+                  <PinDropTwoToneIcon sx={{ mr: 1 }} />
+                  Organisation Registered Office Address
+                </Typography>
+              }
+            />
+            <Divider />
+            <CardContent>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 12 }}>
+                  <TextField
+                    required
+                    size="small"
+                    fullWidth
+                    id="officeAddress"
+                    name="officeAddress"
+                    label="Organisation Registered Office Address"
+                    multiline
+                    rows={4}
+                    value={formik.values.officeAddress}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    error={
+                      formik.touched.officeAddress &&
+                      Boolean(formik.errors.officeAddress)
+                    }
+                    helperText={
+                      formik.touched.officeAddress &&
+                      formik.errors.officeAddress
+                    }
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Autocomplete
+                    size="small"
+                    required
+                    options={stateOptions}
+                    getOptionLabel={(option) => option.label}
+                    value={formik.values.state}
+                    onChange={(e, newValue) =>
+                      formik.setFieldValue("state", newValue)
+                    }
+                    fullWidth
+                    renderInput={(params) => (
+                      <TextField
+                        sx={{ width: "100%", mt: 2 }}
+                        {...params}
+                        label="State"
+                        variant="outlined"
+                        error={
+                          formik.touched.state && Boolean(formik.errors.state)
+                        }
+                        helperText={formik.touched.state && formik.errors.state}
+                      />
+                    )}
+                  />
+                </Grid>
+                {formik?.values?.state?.id === 5 ? (
+                  <>
+                    {/* Bihar UI */}
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        size="small"
+                        required
+                        options={divisionOptions}
+                        getOptionLabel={(option) => option.label}
+                        value={formik.values.Division}
+                        onChange={(e, newValue) =>
+                          formik.setFieldValue("Division", newValue)
+                        }
+                        fullWidth
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            sx={{ width: "100%", mt: 2 }}
+                            label="Division"
+                            variant="outlined"
+                            error={
+                              formik.touched.Division &&
+                              Boolean(formik.errors.Division)
+                            }
+                            helperText={
+                              formik.touched.Division && formik.errors.Division
+                            }
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        size="small"
+                        required
+                        options={districtOptions}
+                        getOptionLabel={(option) => option.label}
+                        value={formik.values.district}
+                        onChange={(e, newValue) =>
+                          formik.setFieldValue("district", newValue)
+                        }
+                        fullWidth
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            sx={{ width: "100%", mt: 2 }}
+                            label="District"
+                            variant="outlined"
+                            error={
+                              formik.touched.district &&
+                              Boolean(formik.errors.district)
+                            }
+                            helperText={
+                              formik.touched.district && formik.errors.district
+                            }
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        size="small"
+                        options={blockOptions}
+                        getOptionLabel={(option) => option.label}
+                        value={formik.values.Block}
+                        onChange={(e, newValue) =>
+                          formik.setFieldValue("Block", newValue)
+                        }
+                        fullWidth
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            sx={{ width: "100%", mt: 2 }}
+                            label="Block"
+                            variant="outlined"
+                            error={
+                              formik.touched.Block &&
+                              Boolean(formik.errors.Block)
+                            }
+                            helperText={
+                              formik.touched.Block && formik.errors.Block
+                            }
+                          />
+                        )}
+                      />
+                    </Grid>
+                  </>
+                ) : (
+                  <>
+                    {/* Other State UI */}
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        size="small"
+                        required
+                        options={districtOptions}
+                        getOptionLabel={(option) => option.label}
+                        value={formik.values.district}
+                        onChange={(e, newValue) =>
+                          formik.setFieldValue("district", newValue)
+                        }
+                        fullWidth
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            sx={{ width: "100%", mt: 2 }}
+                            label="District"
+                            variant="outlined"
+                            error={
+                              formik.touched.district &&
+                              Boolean(formik.errors.district)
+                            }
+                            helperText={
+                              formik.touched.district && formik.errors.district
+                            }
+                          />
+                        )}
+                      />
+                    </Grid>
+                    {/* Block TextField (optional) */}
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        id="otherBlock"
+                        name="otherBlock"
+                        label="Block"
+                        sx={{ width: "100%", mt: 2 }}
+                        value={formik.values.otherBlock}
+                        onChange={formik.handleChange}
+                        error={
+                          formik.touched.otherBlock &&
+                          Boolean(formik.errors.otherBlock)
+                        }
+                        helperText={
+                          formik.touched.otherBlock && formik.errors.otherBlock
+                        }
+                      />
+                    </Grid>
+                  </>
+                )}
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    required
+                    label="Pincode"
+                    name="pincode"
+                    value={formik.values.pincode}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    error={
+                      formik.touched.pincode && Boolean(formik.errors.pincode)
+                    }
+                    helperText={formik.touched.pincode && formik.errors.pincode}
+                    fullWidth
+                    size="small"
+                    sx={{ width: "100%", mt: 2 }}
+                  />
+                </Grid>
+              </Grid>
+              <Box sx={{ mt: 8 }}>
+                <Typography
+                  variant="h7"
+                  sx={{ display: "flex", alignItems: "center" }}
+                >
+                  <ContactEmergencyIcon sx={{ mr: 1 }} />
+                  Contact Information
+                </Typography>
+                <Divider sx={{ mt: 2 }} />
+                <Grid container spacing={2} mb={1}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      required
+                      size="small"
+                      fullWidth
+                      id="firstName"
+                      name="firstName"
+                      label="First Name"
+                      value={formik.values.firstName}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={
+                        formik.touched.firstName &&
+                        Boolean(formik.errors.firstName)
+                      }
+                      helperText={
+                        formik.touched.firstName && formik.errors.firstName
+                      }
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      id="middleName"
+                      name="middleName"
+                      label="Middle Name"
+                      value={formik.values.middleName}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={
+                        formik.touched.middleName &&
+                        Boolean(formik.errors.middleName)
+                      }
+                      helperText={
+                        formik.touched.middleName && formik.errors.middleName
+                      }
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      required
+                      size="small"
+                      fullWidth
+                      id="lastName"
+                      name="lastName"
+                      label="Last Name"
+                      value={formik.values.lastName}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={
+                        formik.touched.lastName &&
+                        Boolean(formik.errors.lastName)
+                      }
+                      helperText={
+                        formik.touched.lastName && formik.errors.lastName
+                      }
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      required
+                      size="small"
+                      fullWidth
+                      id="designation"
+                      name="designation"
+                      label="Designation"
+                      value={formik.values.designation}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={
+                        formik.touched.designation &&
+                        Boolean(formik.errors.designation)
+                      }
+                      helperText={
+                        formik.touched.designation && formik.errors.designation
+                      }
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      id="mobileNo"
+                      name="mobileNo"
+                      label="Mobile Number"
+                      value={formik.values.mobileNo}
+                      onChange={formik.handleChange}
+                      InputProps={{
+                        readOnly: true,
+                      }}
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      required
+                      size="small"
+                      fullWidth
+                      id="officeContactNo"
+                      name="officeContactNo"
+                      label="Office Contact Number"
+                      value={formik.values.officeContactNo}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={
+                        formik.touched.officeContactNo &&
+                        Boolean(formik.errors.officeContactNo)
+                      }
+                      helperText={
+                        formik.touched.officeContactNo &&
+                        formik.errors.officeContactNo
+                      }
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      id="email"
+                      name="email"
+                      label="Email Id"
+                      value={formik.values.email}
+                      onChange={formik.handleChange}
+                      InputProps={{
+                        readOnly: true,
+                      }}
+                      sx={{ width: "100%", mt: 2 }}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+              <Box sx={{ textAlign: "center", mt: 2 }}>
+                {userInfo?.userDetails?.isAllowedToSubmit && (
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", gap: 2 }}
+                  >
+                    <Button
+                      onClick={() => goToBackTab()}
+                      variant="contained"
+                      startIcon={<SendIcon sx={{ transform: "scaleX(-1)" }} />}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      endIcon={<SendIcon />}
+                    >
+                      Save & Next
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+export default LocationContact;
