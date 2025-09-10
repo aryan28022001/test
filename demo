@@ -30,70 +30,37 @@ import {
 import { useSnackbar } from "../../../components/Snackbar";
 import SendIcon from "@mui/icons-material/Send";
 import { useSelector } from "react-redux";
+
 const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   const [stateOptions, setStateOptions] = useState([]);
   const [divisionOptions, setDivisionOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [blockOptions, setBlockOptions] = useState([]);
-  const [talukaOptions, setTalukaOptions] = useState([]);
   const { showSnackbar } = useSnackbar();
   const { userInfo } = useSelector((state) => state.auth);
-  const formik = useFormik({
-    initialValues: {
-      officeAddress: "",
-      pincode: "",
-      state: null,
-      Division: null,
-      district: null,
-      Block: null,
-      otherDivision: "",
-      otherDistrict: "",
-      otherBlock: "",
-      firstName: "",
-      middleName: "",
-      lastName: "",
-      designation: "",
-      mobileNo: "",
-      officeContactNo: "",
-      email: "",
-    },
 
-    validationSchema: Yup.object({
+  // Dynamic validation schema
+  const getValidationSchema = (values) => {
+    const isBihar = values.state?.id === 5;
+    return Yup.object({
       officeAddress: Yup.string().required("Office Address is Required"),
       state: Yup.object().nullable().required("State/UT is required"),
 
-      Division: Yup.mixed()
-        .nullable()
-        .when("state", {
-          is: (state) => state?.id === 5,
-          then: (schema) => schema.required("Division is required"),
-          otherwise: (schema) => schema.notRequired(),
-        }),
+      Division: isBihar
+        ? Yup.mixed().nullable().required("Division is required")
+        : Yup.mixed().nullable(),
 
       district: Yup.mixed()
         .nullable()
-        .when("state", {
-          is: (state) => state?.id === 5,
-          then: (schema) => schema.required("District is required"),
-          otherwise: (schema) => schema.required("District is required"),
-        }),
+        .required("District is required"),
 
-      Block: Yup.mixed().nullable(), // Optional in all cases
+      Block: isBihar
+        ? Yup.mixed().nullable()
+        : Yup.mixed().nullable(),
 
-      otherDivision: Yup.string()
-        .nullable()
-        .when("state", {
-          is: (state) => state?.id !== 5,
-          then: (schema) => schema.required("Division is required"),
-        }),
-
-      otherDistrict: Yup.string().when("state", {
-        is: (state) => state?.id !== 5,
-        then: (schema) => schema.required("District is required"),
-        otherwise: (schema) => schema.nullable(),
-      }),
-
-      otherBlock: Yup.string().nullable(), // Optional
+      otherBlock: isBihar
+        ? Yup.string().nullable()
+        : Yup.string().nullable(), // Optional
 
       pincode: Yup.string()
         .matches(/^\d{6}$/, "Pincode must be exactly 6 digits")
@@ -117,8 +84,42 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       officeContactNo: Yup.string()
         .matches(/^\d{10}$/, "Office Contact Number must be exactly 10 digits")
         .required("Office Contact Number is Required"),
-    }),
+    });
+  };
 
+  const formik = useFormik({
+    initialValues: {
+      officeAddress: "",
+      pincode: "",
+      state: null,
+      Division: null,
+      district: null,
+      Block: null,
+      otherBlock: "",
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      designation: "",
+      mobileNo: "",
+      officeContactNo: "",
+      email: "",
+    },
+    validationSchema: getValidationSchema({ state: null }),
+    validate: (values) => {
+      // On every change, update schema dynamically for correct validation
+      try {
+        getValidationSchema(values).validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err) {
+        const errors = {};
+        if (err.inner) {
+          err.inner.forEach((e) => {
+            if (!errors[e.path]) errors[e.path] = e.message;
+          });
+        }
+        return errors;
+      }
+    },
     onSubmit: async (values) => {
       const isBihar = values.state?.id === 5;
       const payload = {
@@ -126,7 +127,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
           officeAddress: values.officeAddress,
           stateId: values.state?.id ?? null,
           divisionId: isBihar ? values.Division?.id ?? null : null,
-          districtId: values.district.id ?? null,
+          districtId: values.district?.id ?? null,
           blockId: isBihar ? values.Block?.id ?? null : null,
           otherBlock: !isBihar ? values.otherBlock : null,
           pincode: values.pincode,
@@ -147,7 +148,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
         markTabAsCompleted();
         goToNextTab();
       } catch (error) {
-        console.log(error);
         showSnackbar(
           `Error: ${error.response?.data?.message || error.message}`,
           "error"
@@ -159,27 +159,16 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     enableReinitialize: true,
   });
 
-  // Load all dropdowns and initial values in a single effect
+  // Load dropdowns and initial values
   useEffect(() => {
-    const loadDivisionDropdown = async () => {
-      try {
-        const data = await fetchdivisionsType();
-        setDivisionOptions(data);
-      } catch (err) {
-        console.error("Failed to fetch division dropdown", err);
-      }
-    };
-
     const loadStateList = async () => {
       try {
         const data = await fetchstateType();
         setStateOptions(data);
-      } catch (err) {
-        console.error("Failed to fetch organization dropdown", err);
-      }
+      } catch (err) {}
     };
-
-    // Main effect for loading and setting dependent dropdowns and values
+    loadStateList();
+    // initial details
     const loadEmployer_location_ContactDetails = async () => {
       try {
         const data = await fetchEmployer_Location_ContactDetail();
@@ -218,22 +207,24 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                   _blockOptions.find((b) => b.id === loc.block?.id) || null;
               }
             }
+          } else if (state?.id) {
+            const districtRes = await fetchotherdistrictType(state.id);
+            _districtOptions = districtRes.result || [];
+            selectedDistrict =
+              _districtOptions.find((d) => d.id === loc.district?.id) || null;
           }
 
           setDivisionOptions(_divisionOptions);
           setDistrictOptions(_districtOptions);
           setBlockOptions(_blockOptions);
 
-          // Set all initial values at once
           formik.setValues({
             officeAddress: loc.officeAddress || "",
             pincode: loc.pincode || "",
-            state: state,
+            state,
             Division: selectedDivision,
             district: selectedDistrict,
             Block: selectedBlock,
-            otherDivision: !isBihar ? loc.otherDivision ?? "" : "",
-            otherDistrict: !isBihar ? loc.otherDistrict ?? "" : "",
             otherBlock: !isBihar ? loc.otherBlock ?? "" : "",
             firstName: contact.firstName || "",
             middleName: contact.middleName || "",
@@ -244,93 +235,101 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
             email: contact.email || "",
           });
         }
-      } catch (err) {
-        console.error("Failed to fetch location/contact details", err);
-      }
+      } catch (err) {}
     };
-
-    loadDivisionDropdown();
-    loadStateList();
     loadEmployer_location_ContactDetails();
   }, []);
 
-  // Only reload dependent dropdowns if user changes state/division/district manually
+  // Handle state change (fetch dropdowns)
   useEffect(() => {
-    // Only reload if not set by initial data load
-    if (
-      formik.values.state &&
-      !formik.values.Division &&
-      formik.values.state.id === 5
-    ) {
+    const state = formik.values.state;
+    if (!state) return;
+    if (state.id === 5) {
+      // Bihar: fetch divisions
       const loadDivision = async () => {
         try {
-          const data = await fetchdivisionType(formik.values.state.id);
+          const data = await fetchdivisionType(state.id);
           setDivisionOptions(data.result || []);
           setDistrictOptions([]);
+          setBlockOptions([]);
+          formik.setFieldValue("Division", null);
           formik.setFieldValue("district", null);
+          formik.setFieldValue("Block", null);
+          formik.setFieldValue("pincode", "");
         } catch (err) {
           setDivisionOptions([]);
         }
       };
       loadDivision();
-    }
-    // For non-Bihar states, clear division/district/block dropdowns
-    if (formik.values.state && formik.values.state.id !== 5) {
-      setDivisionOptions([]);
-      setDistrictOptions([]);
-      setBlockOptions([]);
-      formik.setFieldValue("Division", null);
-      formik.setFieldValue("district", null);
-      formik.setFieldValue("Block", null);
+    } else {
+      // Other state: fetch districts
+      const loadDistricts = async () => {
+        try {
+          const data = await fetchotherdistrictType(state.id);
+          setDistrictOptions(data.result || []);
+          setBlockOptions([]);
+          setDivisionOptions([]);
+          formik.setFieldValue("Division", null);
+          formik.setFieldValue("district", null);
+          formik.setFieldValue("Block", null);
+          formik.setFieldValue("pincode", "");
+        } catch (err) {
+          setDistrictOptions([]);
+        }
+      };
+      loadDistricts();
     }
   }, [formik.values.state]);
 
+  // Handle Division change
   useEffect(() => {
-    if (formik.values.Division && !formik.values.district) {
+    const division = formik.values.Division;
+    const state = formik.values.state;
+    if (state?.id !== 5) return;
+    if (division) {
       const loadDistricts = async () => {
         try {
-          const data = await fetchdistrictType(formik.values.Division.id);
+          const data = await fetchdistrictType(division.id);
           setDistrictOptions(data.result || []);
           setBlockOptions([]);
+          formik.setFieldValue("district", null);
           formik.setFieldValue("Block", null);
+          formik.setFieldValue("pincode", "");
         } catch (error) {
           setDistrictOptions([]);
         }
       };
       loadDistricts();
     }
-  }, [formik.values.Division]);
+  }, [formik.values.Division, formik.values.state]);
 
+  // Handle District change (Bihar only)
   useEffect(() => {
-    if (formik.values.district && !formik.values.Block) {
+    const state = formik.values.state;
+    if (state?.id !== 5) return;
+    const district = formik.values.district;
+    if (district) {
       const loadBlocks = async () => {
         try {
-          const data = await fetchBlockType(formik.values.district.id);
+          const data = await fetchBlockType(district.id);
           setBlockOptions(data.result || []);
+          formik.setFieldValue("Block", null);
+          formik.setFieldValue("pincode", "");
         } catch (error) {
           setBlockOptions([]);
         }
       };
       loadBlocks();
     }
-  }, [formik.values.district]);
+  }, [formik.values.district, formik.values.state]);
 
+  // For non-Bihar, clear Block and pincode when District changes
   useEffect(() => {
-    // Only for non-Bihar states, fetch districts by selected state
-    if (formik.values.state && formik.values.state.id !== 5) {
-      const fetchDistrictsForOtherState = async () => {
-        try {
-          const data = await fetchotherdistrictType(formik.values.state.id);
-          // Assume the service returns an array of {id, label}
-          setDistrictOptions(data.result || []);
-          formik.setFieldValue("district", null); // Reset selection
-        } catch (error) {
-          setDistrictOptions([]);
-        }
-      };
-      fetchDistrictsForOtherState();
-    }
-  }, [formik.values.state]);
+    const state = formik.values.state;
+    if (!state || state.id === 5) return;
+    formik.setFieldValue("otherBlock", "");
+    formik.setFieldValue("pincode", "");
+  }, [formik.values.district, formik.values.state]);
 
   return (
     <Box component="form" onSubmit={formik.handleSubmit}>
@@ -351,7 +350,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
             <Divider />
             <CardContent>
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 12 }}>
+                <Grid item xs={12}>
                   <TextField
                     required
                     size="small"
@@ -374,7 +373,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                     }
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid item xs={12} sm={4}>
                   <Autocomplete
                     size="small"
                     required
@@ -401,8 +400,8 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                 </Grid>
                 {formik?.values?.state?.id === 5 ? (
                   <>
-                    {/* Division Dropdown */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    {/* Bihar UI */}
+                    <Grid item xs={12} sm={4}>
                       <Autocomplete
                         size="small"
                         required
@@ -430,9 +429,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                         )}
                       />
                     </Grid>
-
-                    {/* District Dropdown */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid item xs={12} sm={4}>
                       <Autocomplete
                         size="small"
                         required
@@ -460,9 +457,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                         )}
                       />
                     </Grid>
-
-                    {/* Block Dropdown */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid item xs={12} sm={4}>
                       <Autocomplete
                         size="small"
                         options={blockOptions}
@@ -492,73 +487,8 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                   </>
                 ) : (
                   <>
-                    {/* Other Division TextField */}
-                    {/* <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        required
-                        id="otherDivision"
-                        name="otherDivision"
-                        label="Division"
-                        sx={{ width: "100%", mt: 2 }}
-                        value={formik.values.otherDivision}
-                        onChange={formik.handleChange}
-                        error={
-                          formik.touched.otherDivision &&
-                          Boolean(formik.errors.otherDivision)
-                        }
-                        helperText={
-                          formik.touched.otherDivision &&
-                          formik.errors.otherDivision
-                        }
-                      />
-                    </Grid> */}
-
-                    {/* Other District TextField */}
-                    {/* <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        required
-                        id="otherDistrict"
-                        name="otherDistrict"
-                        label="District"
-                        sx={{ width: "100%", mt: 2 }}
-                        value={formik.values.otherDistrict}
-                        onChange={formik.handleChange}
-                        error={
-                          formik.touched.otherDistrict &&
-                          Boolean(formik.errors.otherDistrict)
-                        }
-                        helperText={
-                          formik.touched.otherDistrict &&
-                          formik.errors.otherDistrict
-                        }
-                      />
-                    </Grid> */}
-
-                    {/* Other Block TextField */}
-                    {/* <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        id="otherBlock"
-                        name="otherBlock"
-                        label="Block"
-                        sx={{ width: "100%", mt: 2 }}
-                        value={formik.values.otherBlock}
-                        onChange={formik.handleChange}
-                        error={
-                          formik.touched.otherBlock &&
-                          Boolean(formik.errors.otherBlock)
-                        }
-                        helperText={
-                          formik.touched.otherBlock && formik.errors.otherBlock
-                        }
-                      />
-                    </Grid> */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    {/* Other State UI */}
+                    <Grid item xs={12} sm={4}>
                       <Autocomplete
                         size="small"
                         required
@@ -586,9 +516,8 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                         )}
                       />
                     </Grid>
-
                     {/* Block TextField (optional) */}
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid item xs={12} sm={4}>
                       <TextField
                         size="small"
                         fullWidth
@@ -609,7 +538,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                     </Grid>
                   </>
                 )}
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid item xs={12} sm={4}>
                   <TextField
                     required
                     label="Pincode"
@@ -637,7 +566,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                 </Typography>
                 <Divider sx={{ mt: 2 }} />
                 <Grid container spacing={2} mb={1}>
-                  <Grid size={{ xs: 12, sm: 4 }}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       required
                       size="small"
@@ -658,7 +587,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       sx={{ width: "100%", mt: 2 }}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       size="small"
                       fullWidth
@@ -678,7 +607,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       sx={{ width: "100%", mt: 2 }}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       required
                       size="small"
@@ -699,7 +628,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       sx={{ width: "100%", mt: 2 }}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       required
                       size="small"
@@ -720,7 +649,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       sx={{ width: "100%", mt: 2 }}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       size="small"
                       fullWidth
@@ -730,12 +659,12 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       value={formik.values.mobileNo}
                       onChange={formik.handleChange}
                       InputProps={{
-                        readOnly: true, // keep it readOnly instead of disabled
+                        readOnly: true,
                       }}
                       sx={{ width: "100%", mt: 2 }}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       required
                       size="small"
@@ -757,7 +686,7 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       sx={{ width: "100%", mt: 2 }}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       size="small"
                       fullWidth
@@ -767,24 +696,16 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                       value={formik.values.email}
                       onChange={formik.handleChange}
                       InputProps={{
-                        readOnly: true, // keep it readOnly instead of disabled
+                        readOnly: true,
                       }}
                       sx={{ width: "100%", mt: 2 }}
                     />
                   </Grid>
                 </Grid>
               </Box>
-
-              <Box
-                sx={{
-                  textAlign: "center",
-                  mt: 2,
-                }}
-              >
+              <Box sx={{ textAlign: "center", mt: 2 }}>
                 {userInfo?.userDetails?.isAllowedToSubmit && (
-                  <Box
-                    sx={{ display: "flex", justifyContent: "center", gap: 2 }}
-                  >
+                  <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
                     <Button
                       onClick={() => goToBackTab()}
                       variant="contained"
