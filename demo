@@ -1,3 +1,39 @@
+{
+    "status": true,
+    "message": "Data fetched successfully",
+    "code": 200,
+    "result": {
+        "locationDetails": {
+            "officeAddress": "test",
+            "state": {
+                "id": 1,
+                "code": "AN",
+                "label": "ANDAMAN AND NICOBAR ISLANDS"
+            },
+            "division": null,
+            "district": {
+                "id": 40,
+                "code": null,
+                "label": "North And Middle Andaman"
+            },
+            "block": null,
+            "otherDivision": "a",
+            "otherDistrict": "b",
+            "otherBlock": "test",
+            "pincode": "878909"
+        },
+        "contactDetails": {
+            "firstName": "Aryan",
+            "middleName": "",
+            "lastName": "raj",
+            "designation": "HR",
+            "mobileNo": "8409931611",
+            "officeContactNo": "7656787656",
+            "email": "hij@gmail.com"
+        }
+    }
+}
+
 import React, { useState, useEffect } from "react";
 import {
   Box,
