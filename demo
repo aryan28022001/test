@@ -16,11 +16,10 @@ import ContactEmergencyIcon from "@mui/icons-material/ContactEmergency";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import {
-  fetchdivisionsType,
+  fetchdivisionType,
   fetchdistrictType,
   fetchBlockType,
   fetchstateType,
-  fetchdivisionType,
   fetchotherdistrictType,
 } from "../../../services/dropdownService";
 import {
@@ -36,11 +35,20 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
   const [divisionOptions, setDivisionOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [blockOptions, setBlockOptions] = useState([]);
+  const [divisionLoading, setDivisionLoading] = useState(false);
+  const [districtLoading, setDistrictLoading] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
   const { showSnackbar } = useSnackbar();
   const { userInfo } = useSelector((state) => state.auth);
 
   // Ref to store loaded (API) values for comparison
   const loadedValues = useRef({});
+
+  // Helper: map API values to dropdown objects
+  const findOption = (options, value) => {
+    if (!value || !Array.isArray(options)) return null;
+    return options.find((opt) => opt.id === value.id) || value;
+  };
 
   // Dynamic validation schema
   const getValidationSchema = (values) => {
@@ -74,12 +82,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
         .matches(/^\d{10}$/, "Office Contact Number must be exactly 10 digits")
         .required("Office Contact Number is Required"),
     });
-  };
-
-  // Helper: map API values to dropdown objects
-  const findOption = (options, value) => {
-    if (!value || !Array.isArray(options)) return null;
-    return options.find((opt) => opt.id === value.id) || value;
   };
 
   const formik = useFormik({
@@ -116,7 +118,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
     },
     onSubmit: async (values) => {
       const isBihar = values.state?.id === 5;
-      // Use loadedValues to compare and keep unchanged values
       const payload = {
         locationDetails: {
           officeAddress: values.officeAddress,
@@ -180,32 +181,37 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
         let selectedState = findOption(states, loc.state);
 
         if (selectedState?.id === 5) {
-          // Bihar
+          setDivisionLoading(true);
           const divRes = await fetchdivisionType(selectedState.id);
           _divisionOptions = divRes.result || [];
+          setDivisionLoading(false);
           let selectedDivision = findOption(_divisionOptions, loc.division);
 
           if (selectedDivision) {
+            setDistrictLoading(true);
             const distRes = await fetchdistrictType(selectedDivision.id);
             _districtOptions = distRes.result || [];
+            setDistrictLoading(false);
             let selectedDistrict = findOption(_districtOptions, loc.district);
 
             if (selectedDistrict) {
+              setBlockLoading(true);
               const blockRes = await fetchBlockType(selectedDistrict.id);
               _blockOptions = blockRes.result || [];
+              setBlockLoading(false);
             }
           }
         } else if (selectedState?.id) {
-          // Other state
+          setDistrictLoading(true);
           const distRes = await fetchotherdistrictType(selectedState.id);
           _districtOptions = distRes.result || [];
+          setDistrictLoading(false);
         }
 
         setDivisionOptions(_divisionOptions);
         setDistrictOptions(_districtOptions);
         setBlockOptions(_blockOptions);
 
-        // 4. Set initial values
         formik.setValues({
           officeAddress: loc.officeAddress || "",
           pincode: loc.pincode || "",
@@ -235,7 +241,6 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       prevStateId.current !== undefined &&
       prevStateId.current !== formik.values.state?.id
     ) {
-      // State changed: clear children, fetch new options
       setDivisionOptions([]);
       setDistrictOptions([]);
       setBlockOptions([]);
@@ -247,14 +252,16 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
 
       const state = formik.values.state;
       if (state?.id === 5) {
-        // Bihar: fetch divisions
+        setDivisionLoading(true);
         fetchdivisionType(state.id).then((data) => {
           setDivisionOptions(data.result || []);
+          setDivisionLoading(false);
         });
       } else if (state?.id) {
-        // Other: fetch districts
+        setDistrictLoading(true);
         fetchotherdistrictType(state.id).then((data) => {
           setDistrictOptions(data.result || []);
+          setDistrictLoading(false);
         });
       }
     }
@@ -273,11 +280,12 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       formik.setFieldValue("district", null);
       formik.setFieldValue("Block", null);
       formik.setFieldValue("pincode", "");
-
       const division = formik.values.Division;
       if (division?.id) {
+        setDistrictLoading(true);
         fetchdistrictType(division.id).then((data) => {
           setDistrictOptions(data.result || []);
+          setDistrictLoading(false);
         });
       }
     }
@@ -294,11 +302,12 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
       setBlockOptions([]);
       formik.setFieldValue("Block", null);
       formik.setFieldValue("pincode", "");
-
       const district = formik.values.district;
       if (district?.id) {
+        setBlockLoading(true);
         fetchBlockType(district.id).then((data) => {
           setBlockOptions(data.result || []);
+          setBlockLoading(false);
         });
       }
     }
@@ -389,119 +398,157 @@ const LocationContact = ({ goToNextTab, goToBackTab, markTabAsCompleted }) => {
                   <>
                     {/* Bihar UI */}
                     <Grid item xs={12} sm={4}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={divisionOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.Division}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("Division", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="Division"
-                            variant="outlined"
-                            error={
-                              formik.touched.Division &&
-                              Boolean(formik.errors.Division)
-                            }
-                            helperText={
-                              formik.touched.Division && formik.errors.Division
-                            }
-                          />
-                        )}
-                      />
+                      {divisionLoading ? (
+                        <TextField
+                          label="Loading Division..."
+                          disabled
+                          fullWidth
+                          sx={{ width: "100%", mt: 2 }}
+                        />
+                      ) : (
+                        <Autocomplete
+                          size="small"
+                          required
+                          options={divisionOptions}
+                          getOptionLabel={(option) => option.label}
+                          value={formik.values.Division}
+                          onChange={(e, newValue) =>
+                            formik.setFieldValue("Division", newValue)
+                          }
+                          fullWidth
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              sx={{ width: "100%", mt: 2 }}
+                              label="Division"
+                              variant="outlined"
+                              error={
+                                formik.touched.Division &&
+                                Boolean(formik.errors.Division)
+                              }
+                              helperText={
+                                formik.touched.Division && formik.errors.Division
+                              }
+                            />
+                          )}
+                        />
+                      )}
                     </Grid>
                     <Grid item xs={12} sm={4}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={districtOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.district}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("district", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="District"
-                            variant="outlined"
-                            error={
-                              formik.touched.district &&
-                              Boolean(formik.errors.district)
-                            }
-                            helperText={
-                              formik.touched.district && formik.errors.district
-                            }
-                          />
-                        )}
-                      />
+                      {districtLoading ? (
+                        <TextField
+                          label="Loading District..."
+                          disabled
+                          fullWidth
+                          sx={{ width: "100%", mt: 2 }}
+                        />
+                      ) : (
+                        <Autocomplete
+                          size="small"
+                          required
+                          options={districtOptions}
+                          getOptionLabel={(option) => option.label}
+                          value={formik.values.district}
+                          onChange={(e, newValue) =>
+                            formik.setFieldValue("district", newValue)
+                          }
+                          fullWidth
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              sx={{ width: "100%", mt: 2 }}
+                              label="District"
+                              variant="outlined"
+                              error={
+                                formik.touched.district &&
+                                Boolean(formik.errors.district)
+                              }
+                              helperText={
+                                formik.touched.district &&
+                                formik.errors.district
+                              }
+                            />
+                          )}
+                        />
+                      )}
                     </Grid>
                     <Grid item xs={12} sm={4}>
-                      <Autocomplete
-                        size="small"
-                        options={blockOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.Block}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("Block", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="Block"
-                            variant="outlined"
-                            error={
-                              formik.touched.Block &&
-                              Boolean(formik.errors.Block)
-                            }
-                            helperText={
-                              formik.touched.Block && formik.errors.Block
-                            }
-                          />
-                        )}
-                      />
+                      {blockLoading ? (
+                        <TextField
+                          label="Loading Block..."
+                          disabled
+                          fullWidth
+                          sx={{ width: "100%", mt: 2 }}
+                        />
+                      ) : (
+                        <Autocomplete
+                          size="small"
+                          options={blockOptions}
+                          getOptionLabel={(option) => option.label}
+                          value={formik.values.Block}
+                          onChange={(e, newValue) =>
+                            formik.setFieldValue("Block", newValue)
+                          }
+                          fullWidth
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              sx={{ width: "100%", mt: 2 }}
+                              label="Block"
+                              variant="outlined"
+                              error={
+                                formik.touched.Block &&
+                                Boolean(formik.errors.Block)
+                              }
+                              helperText={
+                                formik.touched.Block && formik.errors.Block
+                              }
+                            />
+                          )}
+                        />
+                      )}
                     </Grid>
                   </>
                 ) : (
                   <>
                     {/* Other State UI */}
                     <Grid item xs={12} sm={4}>
-                      <Autocomplete
-                        size="small"
-                        required
-                        options={districtOptions}
-                        getOptionLabel={(option) => option.label}
-                        value={formik.values.district}
-                        onChange={(e, newValue) =>
-                          formik.setFieldValue("district", newValue)
-                        }
-                        fullWidth
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            sx={{ width: "100%", mt: 2 }}
-                            label="District"
-                            variant="outlined"
-                            error={
-                              formik.touched.district &&
-                              Boolean(formik.errors.district)
-                            }
-                            helperText={
-                              formik.touched.district && formik.errors.district
-                            }
-                          />
-                        )}
-                      />
+                      {districtLoading ? (
+                        <TextField
+                          label="Loading District..."
+                          disabled
+                          fullWidth
+                          sx={{ width: "100%", mt: 2 }}
+                        />
+                      ) : (
+                        <Autocomplete
+                          size="small"
+                          required
+                          options={districtOptions}
+                          getOptionLabel={(option) => option.label}
+                          value={formik.values.district}
+                          onChange={(e, newValue) =>
+                            formik.setFieldValue("district", newValue)
+                          }
+                          fullWidth
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              sx={{ width: "100%", mt: 2 }}
+                              label="District"
+                              variant="outlined"
+                              error={
+                                formik.touched.district &&
+                                Boolean(formik.errors.district)
+                              }
+                              helperText={
+                                formik.touched.district &&
+                                formik.errors.district
+                              }
+                            />
+                          )}
+                        />
+                      )}
                     </Grid>
                     {/* Block TextField (optional) */}
                     <Grid item xs={12} sm={4}>
